@@ -7,10 +7,15 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -b",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "build": "pnpm run schema:generate && tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "schema:types": "node scripts/generate-types.mjs",
+    "schema:validator": "node scripts/generate-validator.mjs",
+    "schema:generate": "pnpm run schema:types && pnpm run schema:validator"
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
+    "json-schema-to-typescript": "^15.0.4",
     "typescript": "^5.6.3"
   }
 }
