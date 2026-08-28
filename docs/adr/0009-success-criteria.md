@@ -44,13 +44,16 @@ mechanism used for `pocket` on `type: "pot"` shots.
 | `any_order` | Pot every ball, in any order. | As above, order unconstrained. |
 | `single_shot` | Make the shot once. | Make it `target` times out of `attempts`. |
 
-Two clarifications that would otherwise be argued about later:
+Three clarifications that would otherwise be argued about later:
 
 - **Under `any_order`, `shots[].n` is display numbering only.** It labels the
   shots in a diagram; it does not constrain the order they are attempted in.
   Under `strict`, `n` is binding and must be contiguous from 1.
 - **`single_shot` with `run_all` is legal** and means "make it once." It is
   unusual but not wrong, and rejecting it would be a rule with no benefit.
+- **`sequencing: "single_shot"` requires exactly one shot** —
+  `shots.length === 1`. This is a semantic rule, not a shape rule: it is
+  enforced by `validateDrill()` in core, not the JSON Schema.
 
 ### Deliberately excluded
 
@@ -67,8 +70,8 @@ drills will be awkward. That is the signal.
 
 ## Consequences
 
-- The two committed sequencing shapes both have a meaningful success
-  criterion in `0.1`.
+- All three committed sequencing shapes — `strict`, `any_order`, and
+  `single_shot` — have a meaningful success criterion in `0.1`.
 - `success` says nothing about *what counts as* a successful attempt beyond
   potting the required balls — position goals are not scored. Whether
   "made the ball but missed position" is a failure is left to the player.
@@ -83,9 +86,9 @@ drills will be awkward. That is the signal.
 ## Alternatives considered
 
 **Free prose in `0.1`.** Consistent with how spin and technique are being
-handled, and defensible. Rejected because `run_all` and `count` cover the two
-sequencing shapes already committed to, and prose there would make practice
-logging in M4 unimplementable without a format change.
+handled, and defensible. Rejected because `run_all` and `count` cover the
+three sequencing shapes already committed to, and prose there would make
+practice logging in M4 unimplementable without a format change.
 
 **Add progressive mode now.** Rejected: too much design ahead of the evidence.
 
