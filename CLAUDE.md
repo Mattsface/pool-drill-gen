@@ -8,15 +8,29 @@ where the balls are, and what the player is trying to do.
 
 ---
 
-## Current milestone: M0 — Decisions & format semantics
+## Current milestone: M1 — Format Foundation
 
-**Do not initialize the TypeScript workspace. Do not create `package.json`.**
+M0 is complete. The architecture and format-semantics
+decisions in docs/ and the accepted ADRs are binding.
 
-M0 produces documentation only. It is complete when another engineer could
-read `docs/` and independently implement the same coordinate, identity,
-pocket, compatibility, and provenance semantics.
+M1 creates:
 
-M1 begins only after that.
+- packages/schema
+- packages/core
+- apps/cli
+
+M1 includes:
+
+- experimental format 0.1
+- generated TypeScript types
+- precompiled Ajv validator
+- semantic validateDrill()
+- coordinate/diamond helpers
+- fixture drills
+- validate and show CLI commands
+
+Do not begin SVG, PWA, sharing, practice logging,
+generation, or other M2+ work.
 
 ### Scope discipline
 
