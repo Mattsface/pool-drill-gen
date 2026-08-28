@@ -73,7 +73,7 @@ different table.
   non-authoritative and warning on mismatch — but it is a real cost and worth
   revisiting before `1.0`.
 - Hand-authoring requires knowing your table's real playing dimensions. The
-  CLI should offer the three standard profiles as defaults so this is a flag,
+  CLI should offer the four standard profiles as defaults so this is a flag,
   not homework.
 - A ball frozen on a cushion is not a portable coordinate — it is computed
   from the table it was authored for. See `coordinates.md` §8.2.

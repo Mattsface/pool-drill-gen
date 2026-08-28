@@ -37,9 +37,10 @@ For the tables this project targets, `W = L / 2`:
 
 | Nominal size | `L` (in) | `W` (in) | `W / L` |
 |---|---|---|---|
-| 9 ft | 100 | 50 | 0.5 |
-| 8 ft | 92 | 46 | 0.5 |
 | 7 ft | 78 | 39 | 0.5 |
+| 8 ft | 88 | 44 | 0.5 |
+| 8 ft oversize | 92 | 46 | 0.5 |
+| 9 ft | 100 | 50 | 0.5 |
 
 These are the values a drill records in `authoredFor.playingSurface`. The
 nominal label (`"9ft"`) is a convenience; the inch measurements are
@@ -134,9 +135,10 @@ For a standard 2¼″ ball:
 
 | Nominal size | `L` (in) | `r` (normalized) | Minimum centre separation `2r` |
 |---|---|---|---|
-| 9 ft | 100 | 0.011250 | 0.022500 |
-| 8 ft | 92 | 0.012228 | 0.024457 |
 | 7 ft | 78 | 0.014423 | 0.028846 |
+| 8 ft | 88 | 0.012784 | 0.025568 |
+| 8 ft oversize | 92 | 0.012228 | 0.024457 |
+| 9 ft | 100 | 0.011250 | 0.022500 |
 
 Note that `r` grows as the table shrinks. This is the single most important
 consequence of normalizing: **a layout that is legal on a 9-foot table is not
@@ -288,11 +290,14 @@ document rather than trusting it. Every number below is checked arithmetic.
 ### 8.1 The foot spot on three tables
 
 Normalized position is identical on all three; the physical position is not.
+(The 8 ft standard profile, at 88 × 44, is omitted from this worked example
+but follows the same arithmetic: `x = 66.00 in`, `y = 22.00 in` from the head
+and left cushions respectively.)
 
 | Table | `(x, y)` | From head cushion | From foot cushion | From left cushion |
 |---|---|---|---|---|
 | 9 ft | `(0.7500, 0.2500)` | 75.00 in | 25.00 in | 25.00 in |
-| 8 ft | `(0.7500, 0.2500)` | 69.00 in | 23.00 in | 23.00 in |
+| 8 ft oversize | `(0.7500, 0.2500)` | 69.00 in | 23.00 in | 23.00 in |
 | 7 ft | `(0.7500, 0.2500)` | 58.50 in | 19.50 in | 19.50 in |
 
 In each case the foot spot is one quarter of the table length from the foot
@@ -307,7 +312,7 @@ nose, so `x = 1 - r`.
 | Table | `r` | `x = 1 - r` | Centre from foot cushion |
 |---|---|---|---|
 | 9 ft | 0.011250 | `0.98875` | 1.1250 in |
-| 8 ft | 0.012228 | `0.98777` | 1.1250 in |
+| 8 ft oversize | 0.012228 | `0.98777` | 1.1250 in |
 | 7 ft | 0.014423 | `0.98558` | 1.1250 in |
 
 The physical clearance is correctly 1.125 in — one ball radius — on every
@@ -325,7 +330,7 @@ Two object balls with centres `0.0250` apart in normalized units:
 | Table | Physical separation | Required (`2r` = ball diameter) | Result |
 |---|---|---|---|
 | 9 ft | 2.500 in | 2.25 in | ✅ legal, 0.25 in gap |
-| 8 ft | 2.300 in | 2.25 in | ✅ legal, but effectively frozen |
+| 8 ft oversize | 2.300 in | 2.25 in | ✅ legal, but effectively frozen |
 | 7 ft | 1.950 in | 2.25 in | ❌ **overlapping — impossible** |
 
 A drill authored on a 9-footer with this spacing is not merely harder on a bar
