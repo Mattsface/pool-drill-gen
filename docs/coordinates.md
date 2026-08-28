@@ -287,17 +287,15 @@ stored representation.
 These exist so that another engineer can verify an implementation against this
 document rather than trusting it. Every number below is checked arithmetic.
 
-### 8.1 The foot spot on three tables
+### 8.1 The foot spot on four tables
 
-Normalized position is identical on all three; the physical position is not.
-(The 8 ft standard profile, at 88 × 44, is omitted from this worked example
-but follows the same arithmetic: `x = 66.00 in`, `y = 22.00 in` from the head
-and left cushions respectively.)
+Normalized position is identical on all four; the physical position is not.
 
 | Table | `(x, y)` | From head cushion | From foot cushion | From left cushion |
 |---|---|---|---|---|
 | 9 ft | `(0.7500, 0.2500)` | 75.00 in | 25.00 in | 25.00 in |
 | 8 ft oversize | `(0.7500, 0.2500)` | 69.00 in | 23.00 in | 23.00 in |
+| 8 ft standard | `(0.7500, 0.2500)` | 66.00 in | 22.00 in | 22.00 in |
 | 7 ft | `(0.7500, 0.2500)` | 58.50 in | 19.50 in | 19.50 in |
 
 In each case the foot spot is one quarter of the table length from the foot
@@ -331,14 +329,19 @@ Two object balls with centres `0.0250` apart in normalized units:
 |---|---|---|---|
 | 9 ft | 2.500 in | 2.25 in | ✅ legal, 0.25 in gap |
 | 8 ft oversize | 2.300 in | 2.25 in | ✅ legal, but effectively frozen |
+| 8 ft standard | 2.200 in | 2.25 in | ❌ **overlapping — impossible** |
 | 7 ft | 1.950 in | 2.25 in | ❌ **overlapping — impossible** |
 
-A drill authored on a 9-footer with this spacing is not merely harder on a bar
-box; it cannot be set up at all. `validateDrill()` must reject it with
-`BALL_OVERLAP` when checked against 7-foot geometry.
+The important result is not merely that smaller tables are tighter. Two tables
+both commonly described as "8 ft" give opposite feasibility answers for the
+same normalized layout: it is legal on the 92 × 46 oversize profile and
+physically impossible on the 88 × 44 standard profile. That is why
+`authoredFor.playingSurface` is authoritative and the nominal `tableSize`
+label cannot determine physical feasibility.
 
-This is what "a drill may be practiced on another table if feasibility checks
-pass" means in practice, and why the check is not optional.
+A drill checked against a table where those centres overlap must fail with
+`BALL_OVERLAP`. This is what "a drill may be practiced on another table if
+feasibility checks pass" means in practice, and why the check is not optional.
 
 ### 8.4 Ball in hand behind the head string, 9-foot table
 
