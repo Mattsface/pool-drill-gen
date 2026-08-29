@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pool-drill-gen.dev/schema/drill.schema.json",
+  "title": "DrillPlaceholder",
+  "description": "TEMPORARY placeholder content for the canonical drill schema (packages/schema/src/schema/drill.schema.json). This is NOT the drill format and defines no drill-domain fields. It exists only to prove that JSON Schema -> generated TypeScript types -> precompiled Ajv validator works end to end at the schema's permanent path. The real drill format 0.1 model replaces this content in M1.3 (issue #4).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaToolingPlaceholder"],
+  "properties": {
+    "schemaToolingPlaceholder": {
+      "type": "boolean",
+      "const": true,
+      "description": "Always true. Exists only to give the placeholder content one required property so the generated pipeline has something to validate."
+    }
+  }
+}
