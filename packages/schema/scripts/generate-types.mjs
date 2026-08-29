@@ -11,7 +11,7 @@ const outPath = path.join(__dirname, '../src/generated/drill.ts');
 
 const schema = JSON.parse(await readFile(schemaPath, 'utf-8'));
 
-const output = await compile(schema, 'DrillPlaceholder', {
+const output = await compile(schema, 'Drill', {
   bannerComment:
     '/* eslint-disable */\n' +
     '/**\n' +
