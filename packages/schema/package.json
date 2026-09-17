@@ -13,10 +13,8 @@
     "schema:validator": "node scripts/generate-validator.mjs",
     "schema:generate": "pnpm run schema:types && pnpm run schema:validator"
   },
-  "dependencies": {
-    "ajv": "^8.17.1"
-  },
   "devDependencies": {
+    "ajv": "^8.17.1",
     "json-schema-to-typescript": "^15.0.4",
     "typescript": "^5.6.3"
   }

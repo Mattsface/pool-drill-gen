@@ -29,12 +29,10 @@
     },
     "id": {
       "type": "string",
-      "minLength": 1,
       "description": "Opaque drill identifier. Implementations must not parse it or infer meaning from it. Hosted ids, share slugs, and share URLs never appear in a drill document (ADR-0007)."
     },
     "title": {
       "type": "string",
-      "minLength": 1,
       "description": "Short human-readable name for the drill."
     },
     "description": {
@@ -46,7 +44,6 @@
     },
     "game": {
       "type": "string",
-      "minLength": 1,
       "description": "Optional game or discipline the drill is authored for, e.g. \"8-ball\", \"9-ball\", \"straight-pool\". Open-ended: the corpus has not fixed a closed vocabulary, and many drills are game-agnostic."
     },
     "balls": {
@@ -78,22 +75,18 @@
       "type": "array",
       "description": "Optional open-ended tags for what the drill practices, e.g. \"cut-shot\", \"position\", \"draw\".",
       "items": {
-        "type": "string",
-        "minLength": 1
+        "type": "string"
       }
     },
     "difficulty": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 5,
-      "description": "Optional author-assigned difficulty on a 1–5 scale, 1 being easiest. Presentation and filtering data only: nothing derives geometry or scoring from it."
+      "type": "number",
+      "description": "Optional author-assigned difficulty. Format 0.1 defines no scale, no bounds, and no direction: M0 never specified one, and picking one here would settle by accident a question the M2 corpus should answer. Presentation and filtering data only — nothing derives geometry or scoring from it."
     },
     "tags": {
       "type": "array",
       "description": "Optional free-form tags for organising and filtering drills.",
       "items": {
-        "type": "string",
-        "minLength": 1
+        "type": "string"
       }
     },
     "provenance": {
@@ -112,7 +105,6 @@
       "properties": {
         "tableSize": {
           "type": "string",
-          "minLength": 1,
           "description": "Nominal label such as \"7ft\", \"8ft\", \"8ft-oversize\", \"9ft\". A convenience label and non-authoritative: where it disagrees with playingSurface the inch measurements win, and core warns on an implausible pairing. No implementation may derive geometry from this string (ADR-0005)."
         },
         "playingSurface": {
@@ -209,7 +201,7 @@
       "oneOf": [
         {
           "allOf": [{ "$ref": "#/definitions/point" }],
-          "not": { "required": ["shape"] },
+          "not": { "type": "object", "required": ["shape"] },
           "$comment": "The point branch, and it must not carry `shape`. Without that guard an ill-formed region — `shape` present but its region fields missing or replaced by x/y — would quietly validate as a point at (x, y), silently relocating the ball. Leniency about *unknown* properties (ADR-0006) does not extend to the format's own discriminator."
         },
         { "$ref": "#/definitions/circleRegion" },
@@ -223,7 +215,6 @@
       "properties": {
         "id": {
           "type": "string",
-          "minLength": 1,
           "description": "Opaque ball identifier, unique within this drill and referenced by shots[].ballId. Implementations must not parse it or infer meaning from it; human-readable values such as \"cue\", \"b1\", or \"blocker-left\" are encouraged precisely because they carry no semantics anything depends on (ADR-0003)."
         },
         "role": {
@@ -241,7 +232,6 @@
         },
         "label": {
           "type": "string",
-          "minLength": 1,
           "description": "Optional short label, for display — for balls better named than numbered."
         }
       }
@@ -263,7 +253,6 @@
         },
         "ballId": {
           "type": "string",
-          "minLength": 1,
           "description": "The ball this shot is about, referencing balls[].id — never a ball number (ADR-0003). Reference resolution is checked in core."
         },
         "pocket": {
@@ -340,12 +329,11 @@
         },
         "createdAt": {
           "type": "string",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
-          "description": "ISO 8601 UTC timestamp, e.g. \"2026-08-28T14:00:00Z\". Expressed as a pattern rather than the `format` keyword so the standalone Ajv validator needs no ajv-formats dependency at runtime."
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])T([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(\\.\\d+)?Z$",
+          "description": "ISO 8601 UTC timestamp, e.g. \"2026-08-28T14:00:00Z\" (ADR-0007). The trailing Z is required: local times and numeric offsets are not accepted. This pattern checks layout and component ranges only — it rejects month 13 and hour 25, but it does NOT prove the date exists, so \"2026-02-30T00:00:00Z\" passes, and it does not accept leap seconds. Whether an impossible calendar date is worth a semantic check is a question for core, not a reason to add a date library here. The `format` keyword is avoided so the standalone validator needs no ajv-formats dependency."
         },
         "derivedFrom": {
           "type": "string",
-          "minLength": 1,
           "description": "Optional id of the drill this one was remixed from: a single parent pointer rather than a lineage graph, and a drill id rather than a URL. A remix always gets a new id, and practice statistics do not follow it (ADR-0007)."
         },
         "license": {

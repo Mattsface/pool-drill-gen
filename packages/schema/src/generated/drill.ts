@@ -64,7 +64,7 @@ export interface Drill {
    */
   skills?: string[];
   /**
-   * Optional author-assigned difficulty on a 1–5 scale, 1 being easiest. Presentation and filtering data only: nothing derives geometry or scoring from it.
+   * Optional author-assigned difficulty. Format 0.1 defines no scale, no bounds, and no direction: M0 never specified one, and picking one here would settle by accident a question the M2 corpus should answer. Presentation and filtering data only — nothing derives geometry or scoring from it.
    */
   difficulty?: number;
   /**
@@ -235,7 +235,7 @@ export interface Provenance {
    */
   author?: string;
   /**
-   * ISO 8601 UTC timestamp, e.g. "2026-08-28T14:00:00Z". Expressed as a pattern rather than the `format` keyword so the standalone Ajv validator needs no ajv-formats dependency at runtime.
+   * ISO 8601 UTC timestamp, e.g. "2026-08-28T14:00:00Z" (ADR-0007). The trailing Z is required: local times and numeric offsets are not accepted. This pattern checks layout and component ranges only — it rejects month 13 and hour 25, but it does NOT prove the date exists, so "2026-02-30T00:00:00Z" passes, and it does not accept leap seconds. Whether an impossible calendar date is worth a semantic check is a question for core, not a reason to add a date library here. The `format` keyword is avoided so the standalone validator needs no ajv-formats dependency.
    */
   createdAt: string;
   /**

@@ -36,11 +36,10 @@ importers:
         version: 5.9.3
 
   packages/schema:
-    dependencies:
+    devDependencies:
       ajv:
         specifier: ^8.17.1
         version: 8.20.0
-    devDependencies:
       json-schema-to-typescript:
         specifier: ^15.0.4
         version: 15.0.4
