@@ -9,6 +9,8 @@
   "scripts": {
     "build": "pnpm run schema:generate && tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "schema:types": "node scripts/generate-types.mjs",
     "schema:validator": "node scripts/generate-validator.mjs",
     "schema:generate": "pnpm run schema:types && pnpm run schema:validator"
@@ -16,6 +18,7 @@
   "devDependencies": {
     "ajv": "^8.17.1",
     "json-schema-to-typescript": "^15.0.4",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^5.0.1"
   }
 }

@@ -10,6 +10,7 @@
   "scripts": {
     "build": "pnpm -r run build",
     "clean": "pnpm -r run clean",
+    "test": "pnpm -r run test",
     "schema:types": "pnpm --filter @pool-drill-gen/schema run schema:types",
     "schema:validator": "pnpm --filter @pool-drill-gen/schema run schema:validator",
     "schema:generate": "pnpm --filter @pool-drill-gen/schema run schema:generate"
