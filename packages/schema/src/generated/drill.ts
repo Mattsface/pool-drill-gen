@@ -128,7 +128,7 @@ export interface Ball {
   role: 'cue' | 'object' | 'obstacle';
   at: Placement;
   /**
-   * Optional ball number, for display. Never an identity key: a drill may contain placeholder balls with no number, several balls sharing a number, or balls from a set that has none.
+   * Optional ball number, for display. Never an identity key: a drill may contain placeholder balls with no number, several balls sharing a number, or balls from a set that has none. Format 0.1 sets no range — ADR-0003 establishes only that this is presentation data, so a ball set's numbering is not the schema's to bound.
    */
   number?: number;
   /**
