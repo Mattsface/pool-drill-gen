@@ -24,6 +24,38 @@ const ajv = new Ajv({
 const validate = ajv.compile(schema);
 const moduleCode = standaloneCode(ajv, validate);
 
+// Ajv's standalone output pulls in small runtime helpers (string length,
+// deep equality) and hardcodes them as CommonJS `require()` calls even in
+// ESM mode, which is a syntax error in an ES module. Hoist each one into a
+// real import so the generated module is valid ESM. Nothing here compiles a
+// schema at runtime — these are plain functions.
+const runtimeImports = new Map();
+const esmModuleCode = moduleCode.replace(
+  /require\("([^"]+)"\)/g,
+  (_match, specifier) => {
+    if (!runtimeImports.has(specifier)) {
+      runtimeImports.set(specifier, `ajvRuntime${runtimeImports.size}`);
+    }
+    return runtimeImports.get(specifier);
+  },
+);
+
+if (/\brequire\s*\(/.test(esmModuleCode)) {
+  throw new Error(
+    'generate-validator: generated module still contains a require() call; ' +
+      'the ESM rewrite above did not cover it.',
+  );
+}
+
+// Node's ESM resolver needs the file extension that CommonJS `require()`
+// left implicit.
+const importBlock = [...runtimeImports]
+  .map(([specifier, name]) => {
+    const resolvable = path.extname(specifier) === '' ? `${specifier}.js` : specifier;
+    return `import ${name} from '${resolvable}';`;
+  })
+  .join('\n');
+
 const banner =
   '/* eslint-disable */\n' +
   '/**\n' +
@@ -34,6 +66,9 @@ const banner =
   ' */\n';
 
 await mkdir(path.dirname(outPath), { recursive: true });
-await writeFile(outPath, banner + moduleCode);
+await writeFile(
+  outPath,
+  banner + (importBlock ? importBlock + '\n' : '') + esmModuleCode,
+);
 
 console.log(`Wrote ${path.relative(path.join(__dirname, '..'), outPath)}`);
