@@ -1,16 +1,345 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://pool-drill-gen.dev/schema/drill.schema.json",
-  "title": "DrillPlaceholder",
-  "description": "TEMPORARY placeholder content for the canonical drill schema (packages/schema/src/schema/drill.schema.json). This is NOT the drill format and defines no drill-domain fields. It exists only to prove that JSON Schema -> generated TypeScript types -> precompiled Ajv validator works end to end at the schema's permanent path. The real drill format 0.1 model replaces this content in M1.3 (issue #4).",
+  "title": "Drill",
+  "description": "A pool drill: layout (where the balls are) and intention (what the player is trying to do). Experimental format 0.1 — the format stays deliberately unstable through 0.x and is only frozen at 1.0 (ADR-0001). This schema validates document *shape* only; meaning — exactly one cue ball, unique ball ids, resolvable ballId references, contiguous shot numbers, positions in bounds, non-overlap, min < max, target <= attempts, single_shot cardinality — is validated by validateDrill() in @pool-drill-gen/core. The schema is intentionally lenient: unknown properties are permitted everywhere, and a writer must preserve properties it did not understand (ADR-0006). Strictness is a CLI lint flag, not a format rule.",
   "type": "object",
-  "additionalProperties": false,
-  "required": ["schemaToolingPlaceholder"],
+  "required": [
+    "format",
+    "formatVersion",
+    "id",
+    "title",
+    "authoredFor",
+    "balls",
+    "sequencing",
+    "shots",
+    "success",
+    "provenance"
+  ],
   "properties": {
-    "schemaToolingPlaceholder": {
-      "type": "boolean",
-      "const": true,
-      "description": "Always true. Exists only to give the placeholder content one required property so the generated pipeline has something to validate."
+    "format": {
+      "type": "string",
+      "const": "pool-drill",
+      "description": "Identifies this document family, so a reader can tell a drill from any other JSON it is handed."
+    },
+    "formatVersion": {
+      "type": "string",
+      "const": "0.1",
+      "description": "MAJOR.MINOR string, never a number (ADR-0001). 0.x offers no compatibility promise in either direction, so this schema pins the exact version; general version comparison belongs to the reader/migration layer, not here."
+    },
+    "id": {
+      "type": "string",
+      "description": "Opaque drill identifier. Implementations must not parse it or infer meaning from it. Hosted ids, share slugs, and share URLs never appear in a drill document (ADR-0007)."
+    },
+    "title": {
+      "type": "string",
+      "description": "Short human-readable name for the drill."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional prose. Spin, speed, technique, and progressive/ladder progression rules live here in 0.1, because no structured model for them has been designed yet."
+    },
+    "authoredFor": {
+      "$ref": "#/definitions/authoredFor"
+    },
+    "game": {
+      "type": "string",
+      "description": "Optional game or discipline the drill is authored for, e.g. \"8-ball\", \"9-ball\", \"straight-pool\". Open-ended: the corpus has not fixed a closed vocabulary, and many drills are game-agnostic."
+    },
+    "balls": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Every ball on the table for this drill, including obstacles. Exactly one must have role \"cue\" — a semantic rule, enforced in core.",
+      "items": {
+        "$ref": "#/definitions/ball"
+      }
+    },
+    "sequencing": {
+      "type": "string",
+      "enum": ["strict", "any_order", "single_shot"],
+      "description": "How the shots are to be attempted (ADR-0009). \"strict\": in order, and shots[].n is binding and contiguous from 1. \"any_order\": pot every ball in any order, and n is display numbering only. \"single_shot\": one shot — shots.length === 1 is a semantic rule enforced in core, not here.",
+      "$comment": "Exactly these three modes. No additional sequencing mode may be added without an ADR."
+    },
+    "shots": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The intention: what the player is trying to do. Shaped so that a sibling array — wagon-wheel variants, for instance — can be added additively later.",
+      "items": {
+        "$ref": "#/definitions/shot"
+      }
+    },
+    "success": {
+      "$ref": "#/definitions/success"
+    },
+    "skills": {
+      "type": "array",
+      "description": "Optional open-ended tags for what the drill practices, e.g. \"cut-shot\", \"position\", \"draw\".",
+      "items": {
+        "type": "string"
+      }
+    },
+    "difficulty": {
+      "type": "number",
+      "description": "Optional author-assigned difficulty. Format 0.1 defines no scale, no bounds, and no direction: M0 never specified one, and picking one here would settle by accident a question the M2 corpus should answer. Presentation and filtering data only — nothing derives geometry or scoring from it."
+    },
+    "tags": {
+      "type": "array",
+      "description": "Optional free-form tags for organising and filtering drills.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "$ref": "#/definitions/provenance"
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Declared home for application-specific data, so experimentation has a place that is unambiguously not part of the format. Carries the same preservation guarantee as the rest of the document (ADR-0006). Practice history never goes here — it lives in a separate local format (ADR-0007)."
+    }
+  },
+  "definitions": {
+    "authoredFor": {
+      "type": "object",
+      "description": "The physical setup the drill was authored for. Required, because normalized coordinates alone cannot tell a reader whether a layout is physically possible: the ball does not scale with the table, so a layout that is legal on a 9-foot table can be impossible on a bar box (ADR-0005).",
+      "required": ["tableSize", "playingSurface", "ballSet"],
+      "properties": {
+        "tableSize": {
+          "type": "string",
+          "description": "Nominal label such as \"7ft\", \"8ft\", \"8ft-oversize\", \"9ft\". A convenience label and non-authoritative: where it disagrees with playingSurface the inch measurements win, and core warns on an implausible pairing. No implementation may derive geometry from this string (ADR-0005)."
+        },
+        "playingSurface": {
+          "type": "object",
+          "description": "Authoritative playing-surface geometry, measured cushion nose to cushion nose — not rails, cabinet, slate, or the visible cloth edge (docs/coordinates.md §1). Dimensions are stored explicitly rather than derived from tableSize, and nothing assumes a 2:1 surface: the y bound is computed as widthIn / lengthIn.",
+          "required": ["lengthIn", "widthIn"],
+          "properties": {
+            "lengthIn": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Playing surface length L in inches, along the head-to-foot axis. Both coordinate axes are divided by L (ADR-0004)."
+            },
+            "widthIn": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Playing surface width W in inches, across the table. y is bounded by W / L, never by a hardcoded 0.5."
+            }
+          }
+        },
+        "ballSet": {
+          "type": "object",
+          "description": "The balls the drill was authored with. Only diameter is modelled: weight, friction, and restitution would matter only to a physics simulation, which is out of scope (docs/coordinates.md §9).",
+          "required": ["ballDiameterIn"],
+          "properties": {
+            "ballDiameterIn": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Ball diameter in inches, e.g. 2.25. The normalized radius is (ballDiameterIn / 2) / lengthIn, which core uses for bounds and non-overlap checks."
+            }
+          }
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "description": "An exact position on the playing surface. Both axes are divided by the table length L, so x ∈ [0, 1] head end → foot end and y ∈ [0, W / L] left rail → right rail (ADR-0004, docs/coordinates.md §3). Left and right are fixed by standing behind the head end looking toward the foot end, and never depend on render orientation. Writers round to 4 decimal places; readers accept greater precision. Bounds — inset by one ball radius — depend on the drill's own playingSurface and are therefore checked in core, not here.",
+      "required": ["x", "y"],
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Position along the long axis: head end at 0, foot end at 1."
+        },
+        "y": {
+          "type": "number",
+          "description": "Position across the short axis: left rail at 0, right rail at W / L."
+        }
+      }
+    },
+    "circleRegion": {
+      "type": "object",
+      "description": "A circular placement region.",
+      "required": ["shape", "center", "radius"],
+      "properties": {
+        "shape": {
+          "const": "circle",
+          "description": "Region discriminator. Regions use `shape` rather than `type`, because `type` is already the shot discriminator and one key must not mean two different things at two nesting depths (ADR-0008)."
+        },
+        "center": {
+          "$ref": "#/definitions/point"
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Radius in normalized units — the same scale as x and y, both divided by the table length."
+        }
+      }
+    },
+    "rectRegion": {
+      "type": "object",
+      "description": "A rectangular placement region, given as corner points rather than origin-plus-size so there is no ambiguity about which corner is which. min < max on both axes is checked in core (ADR-0008).",
+      "required": ["shape", "min", "max"],
+      "properties": {
+        "shape": {
+          "const": "rect",
+          "description": "Region discriminator. See circleRegion.shape."
+        },
+        "min": {
+          "$ref": "#/definitions/point"
+        },
+        "max": {
+          "$ref": "#/definitions/point"
+        }
+      }
+    },
+    "region": {
+      "description": "A placement region: an area a ball may be placed in, or that the cue ball should finish in. Discriminated by `shape` (ADR-0008).",
+      "oneOf": [
+        { "$ref": "#/definitions/circleRegion" },
+        { "$ref": "#/definitions/rectRegion" }
+      ]
+    },
+    "placement": {
+      "description": "Either an exact point or a region (ADR-0008). Discrimination is by the presence of `shape`: a placement with no `shape` is a point. One primitive covers exact placement, variable placement such as ball in hand behind the head string, and cue-ball position goals.",
+      "oneOf": [
+        {
+          "allOf": [{ "$ref": "#/definitions/point" }],
+          "not": { "type": "object", "required": ["shape"] },
+          "$comment": "The point branch, and it must not carry `shape`. Without that guard an ill-formed region — `shape` present but its region fields missing or replaced by x/y — would quietly validate as a point at (x, y), silently relocating the ball. Leniency about *unknown* properties (ADR-0006) does not extend to the format's own discriminator."
+        },
+        { "$ref": "#/definitions/circleRegion" },
+        { "$ref": "#/definitions/rectRegion" }
+      ]
+    },
+    "ball": {
+      "type": "object",
+      "description": "One ball in the layout. Identity is the opaque `id`; `number` and `label` are presentation only, and no relationship in this format is keyed by ball number (ADR-0003).",
+      "required": ["id", "role", "at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Opaque ball identifier, unique within this drill and referenced by shots[].ballId. Implementations must not parse it or infer meaning from it; human-readable values such as \"cue\", \"b1\", or \"blocker-left\" are encouraged precisely because they carry no semantics anything depends on (ADR-0003)."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["cue", "object", "obstacle"],
+          "description": "\"cue\": the cue ball, exactly one per drill. \"object\": a ball intended to be struck or potted. \"obstacle\": a ball present only to block or constrain, never referenced by a shot. Format 0.1 defines no other role — in particular there is no \"marker\", because a role with no defined semantic would have its meaning settled by accident (ADR-0003)."
+        },
+        "at": {
+          "$ref": "#/definitions/placement"
+        },
+        "number": {
+          "type": "integer",
+          "description": "Optional ball number, for display. Never an identity key: a drill may contain placeholder balls with no number, several balls sharing a number, or balls from a set that has none. Format 0.1 sets no range — ADR-0003 establishes only that this is presentation data, so a ball set's numbering is not the schema's to bound."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional short label, for display — for balls better named than numbered."
+        }
+      }
+    },
+    "shot": {
+      "type": "object",
+      "description": "One shot in the drill. `type` is an explicit semantic discriminator, so no reader has to infer intent from which other fields happen to be present.",
+      "required": ["n", "type", "ballId"],
+      "properties": {
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Shot number. Under sequencing \"strict\" it is binding and must be contiguous from 1, which core enforces; under \"any_order\" it is display numbering only and does not constrain the order of attempts (ADR-0009)."
+        },
+        "type": {
+          "type": "string",
+          "const": "pot",
+          "description": "Shot semantics. Format 0.1 defines exactly one value: \"pot\" — pot the referenced ball in the named pocket. Whether bank, kick, and the rest belong in this field or elsewhere is a question for the M2 corpus, so nothing is pre-declared here."
+        },
+        "ballId": {
+          "type": "string",
+          "description": "The ball this shot is about, referencing balls[].id — never a ball number (ADR-0003). Reference resolution is checked in core."
+        },
+        "pocket": {
+          "type": "string",
+          "enum": [
+            "head_left",
+            "head_right",
+            "side_left",
+            "side_right",
+            "foot_left",
+            "foot_right"
+          ],
+          "description": "Target pocket, required when type is \"pot\". Identifiers are table-intrinsic and never encode a screen position — the word \"top\" appears nowhere in this format. Left and right are as seen standing behind the head end looking toward the foot end, so every render orientation is a transform over the same data (ADR-0002)."
+        },
+        "cueBallTarget": {
+          "description": "Optional position goal: where the cue ball should finish after this shot. Always a region and never a single point, because nobody lands the cue ball on a coordinate (ADR-0008). Position goals are not scored in 0.1 — success counts pots (ADR-0009).",
+          "allOf": [{ "$ref": "#/definitions/region" }],
+          "$comment": "Wrapped in allOf so the description above is an annotation on this property: in draft-07 keywords alongside $ref are ignored."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional prose about this shot. Where spin, speed, and technique live in 0.1, until the corpus shows the right abstraction."
+        }
+      },
+      "if": {
+        "required": ["type"],
+        "properties": {
+          "type": { "const": "pot" }
+        }
+      },
+      "then": {
+        "required": ["pocket"]
+      }
+    },
+    "success": {
+      "type": "object",
+      "description": "What counts as passing the drill (ADR-0009). Both modes are meaningful under all three sequencing modes. Progressive/ladder scoring is deliberately absent from 0.1; a progression rule lives in `description` prose for now.",
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["run_all", "count"],
+          "description": "\"run_all\": complete the drill — every shot the sequencing calls for. \"count\": succeed `target` times out of `attempts` attempts."
+        },
+        "attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of attempts. Required when mode is \"count\"."
+        },
+        "target": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of successful attempts needed. Required when mode is \"count\". target <= attempts is a cross-field rule and is checked in core."
+        }
+      },
+      "if": {
+        "required": ["mode"],
+        "properties": {
+          "mode": { "const": "count" }
+        }
+      },
+      "then": {
+        "required": ["attempts", "target"]
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Where this drill came from (ADR-0007). An attribution record, not a link: nothing here is required to resolve.",
+      "required": ["createdAt"],
+      "properties": {
+        "author": {
+          "type": "string",
+          "description": "Optional author or original source of the drill."
+        },
+        "createdAt": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])T([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(\\.\\d+)?Z$",
+          "description": "ISO 8601 UTC timestamp, e.g. \"2026-08-28T14:00:00Z\" (ADR-0007). The trailing Z is required: local times and numeric offsets are not accepted. This pattern checks layout and component ranges only — it rejects month 13 and hour 25, but it does NOT prove the date exists, so \"2026-02-30T00:00:00Z\" passes, and it does not accept leap seconds. Whether an impossible calendar date is worth a semantic check is a question for core, not a reason to add a date library here. The `format` keyword is avoided so the standalone validator needs no ajv-formats dependency."
+        },
+        "derivedFrom": {
+          "type": "string",
+          "description": "Optional id of the drill this one was remixed from: a single parent pointer rather than a lineage graph, and a drill id rather than a URL. A remix always gets a new id, and practice statistics do not follow it (ADR-0007)."
+        },
+        "license": {
+          "type": "string",
+          "description": "Optional licence or usage terms. Present because many well-known drills originate in books or copyrighted material: a drill of uncertain origin should say so rather than leave this blank by default (ADR-0007)."
+        }
+      }
     }
   }
 }
