@@ -129,8 +129,10 @@ describe('validateDrill', () => {
 
 describe('public surface', () => {
   it('exports the result and issue types usably', () => {
-    // Types are erased at runtime, so this test is the compiler's: it
-    // fails at type-check time if the exported shapes drift.
+    // Types are erased at runtime, so the real assertion here is the
+    // compiler's: `pnpm test` type-checks this file through
+    // tsconfig.test.json before Vitest runs it, and these annotations
+    // stop compiling if the exported shapes drift.
     const issue: ValidationIssue = {
       code: 'BALL_OVERLAP',
       paths: ['balls[2]', 'balls[4]'],
