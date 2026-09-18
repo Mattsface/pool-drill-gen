@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  // Type-checks the tests as well as the sources, and emits nothing.
+  //
+  // The production project (tsconfig.json) compiles src only, so test
+  // files were transpiled by Vitest but never seen by tsc: a test that
+  // asserts the shape of the public API by assigning to ValidationIssue
+  // or ValidationResult proved nothing. This project is what makes those
+  // assertions load-bearing. It never emits, so no test file can reach
+  // dist.
+  //
+  // Run it with `tsc -b`, not `-p`: @pool-drill-gen/schema resolves
+  // through its package `types` entry, so the reference below is what
+  // builds the schema declarations first and lets `pnpm test` work from
+  // a clean checkout.
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    // Vitest resolves `import.meta.glob` through Vite; this is the type
+    // side of that. Naming the types explicitly also keeps @types/node
+    // out of the test program, so a test cannot reach for `process` or
+    // `Buffer` and still type-check — the same neutrality core's sources
+    // are held to.
+    "types": ["vite/client"]
+  },
+  "include": ["src", "test"],
+  "references": [{ "path": "../schema" }]
+}
