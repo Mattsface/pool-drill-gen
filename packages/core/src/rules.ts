@@ -78,20 +78,29 @@ export function validateIdentityAndReferences(drill: Drill): ValidationIssue[] {
 
   // --- Shot references -------------------------------------------------
   //
-  // Resolution is by id against the first ball declaring it. When ids are
-  // unique — the only case the format actually permits — "first" is
-  // simply "the" ball; when they are not, the duplicate is already
-  // reported above and resolving deterministically avoids inventing a
-  // second, derived complaint about the same mistake.
-  const firstBallIndexById = new Map<string, number>();
-  drill.balls.forEach((ball, index) => {
-    if (!firstBallIndexById.has(ball.id)) firstBallIndexById.set(ball.id, index);
-  });
-
+  // A reference resolves against how many balls declare the id, not
+  // against whichever one happens to come first. Three cases, and the
+  // middle one is the only place a role is read:
+  //
+  //   0 matches  → UNKNOWN_BALL_REFERENCE. The id names nothing.
+  //   1 match    → resolvable. Its role decides whether the reference is
+  //                legal.
+  //   2+ matches → nothing here. The id exists, so it is not unknown;
+  //                which ball it means is undecidable, so no role can be
+  //                inspected without picking one arbitrarily. The
+  //                DUPLICATE_BALL_ID issue above is the authoritative
+  //                report, and it already names every position.
+  //
+  // Picking the first match would make the output depend on the order two
+  // duplicate balls happen to be stored in: the same two balls, swapped,
+  // would produce an OBSTACLE_BALL_REFERENCED issue in one document and
+  // not in the other, for the same single underlying mistake. Deriving a
+  // second complaint from an identity that is already reported broken is
+  // exactly the cascade this module avoids elsewhere.
   drill.shots.forEach((shot, shotIndex) => {
-    const ballIndex = firstBallIndexById.get(shot.ballId);
+    const ballIndices = ballIndicesById.get(shot.ballId);
 
-    if (ballIndex === undefined) {
+    if (ballIndices === undefined) {
       issues.push({
         code: 'UNKNOWN_BALL_REFERENCE',
         paths: [`shots[${shotIndex}].ballId`],
@@ -103,10 +112,14 @@ export function validateIdentityAndReferences(drill: Drill): ValidationIssue[] {
       return;
     }
 
+    if (ballIndices.length > 1) return;
+
+    // Exactly one ball declares the id, so the reference is unambiguous.
     // Obstacles exist to block or constrain and are never shot at
     // (ADR-0003). Both halves of the relationship are named, because
     // either end could be the typo: the shot may mean a different ball,
     // or the ball may have the wrong role.
+    const ballIndex = ballIndices[0];
     if (drill.balls[ballIndex].role === 'obstacle') {
       issues.push({
         code: 'OBSTACLE_BALL_REFERENCED',
@@ -130,8 +143,10 @@ export function validateIdentityAndReferences(drill: Drill): ValidationIssue[] {
 /**
  * Shot numbering and shot count, per sequencing mode (ADR-0009).
  *
- * - `strict`: `shots[].n` is binding. It must be contiguous from 1 in the
- *   authored array order, so `shots[i].n === i + 1`.
+ * - `strict`: `shots[].n` is binding and must be contiguous from 1. For N
+ *   shots the authored numbers must collectively be exactly 1..N, each
+ *   once. Storage order is not itself the sequence — `n` is — so a
+ *   complete set in a different array order is valid.
  * - `single_shot`: exactly one shot. The schema's `minItems: 1` makes the
  *   real failure "more than one", but the check is written as a
  *   cardinality check, not as an upper bound.
@@ -153,29 +168,94 @@ export function validateSequencing(drill: Drill): ValidationIssue[] {
   }
 
   if (drill.sequencing === 'strict') {
-    // The array is the authored sequence and is never sorted first:
-    // sorting would accept [3, 1, 2] as "the numbers 1..3", which is
-    // exactly the reordering this rule exists to catch. Comparing each
-    // position against its expected number catches a start above 1, a
-    // gap, a repeat, and a reorder with no separate check for any of
-    // them, and reports one issue per offending shot rather than one
-    // verdict on the whole sequence.
-    drill.shots.forEach((shot, index) => {
-      const expected = index + 1;
-      if (shot.n !== expected) {
-        issues.push({
-          code: 'SHOT_NUMBERING_INVALID',
-          paths: [`shots[${index}].n`],
-          message: `Strict sequencing expected shot number ${expected}; found ${shot.n}.`,
-        });
-      }
-    });
+    issues.push(...validateStrictNumbering(drill.shots));
   }
 
   // "any_order" falls through with nothing to say. That is the rule, not
   // an omission: n labels the shots in a diagram and does not constrain
   // the order they are attempted in (ADR-0009), so core must not
   // reinterpret it as sequencing.
+
+  return issues;
+}
+
+/**
+ * The strict-numbering rule, on its own so `validateSequencing` stays a
+ * dispatch over the three modes.
+ *
+ * Issue #7 and ADR-0009 both say the same thing: under `strict`, shot
+ * numbering "is contiguous starting at 1". Neither makes the *array* the
+ * sequence. The format already carries an explicit sequence number, so
+ * the rule is about the numbers themselves — for N shots, the authored
+ * `n` values must collectively be exactly 1..N, each used once.
+ *
+ * Reading array position as a second, implicit sequence would reject
+ * `[3, 1, 2]`, a drill whose numbers say plainly and completely what
+ * order the shots are attempted in. Storage order is storage order:
+ * nothing here sorts, and nothing here is written back.
+ *
+ * Two things can go wrong with a multiset, and each gets an issue:
+ *
+ *   - a number outside 1..N, reported per shot;
+ *   - a number used more than once, reported once per repeated value and
+ *     carrying every position that uses it — the same grouping the
+ *     duplicate-id rule uses, so two unrelated repeats stay two issues.
+ *
+ * A *missing* number needs no third case and no new code. N slots hold N
+ * numbers, so a gap can only exist alongside an out-of-range value or a
+ * repeat: every invalid multiset trips at least one of the two above.
+ * The missing numbers are named in the message so the gap is diagnosable
+ * without a path that could not exist anyway.
+ *
+ * Issues come back in `shots` order, a repeat reported at the position it
+ * first appears, so output is deterministic and reads top to bottom.
+ */
+function validateStrictNumbering(shots: Drill['shots']): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const count = shots.length;
+
+  // Positions using each authored number, in shots order.
+  const indicesByNumber = new Map<number, number[]>();
+  shots.forEach((shot, index) => {
+    const seen = indicesByNumber.get(shot.n);
+    if (seen) seen.push(index);
+    else indicesByNumber.set(shot.n, [index]);
+  });
+
+  const missing: number[] = [];
+  for (let n = 1; n <= count; n += 1) {
+    if (!indicesByNumber.has(n)) missing.push(n);
+  }
+  // Only ever appended to a message that is already being reported, so
+  // this is never the sole description of a failure.
+  const missingNote = missing.length > 0 ? ` Missing: ${missing.join(', ')}.` : '';
+
+  shots.forEach((shot, index) => {
+    if (shot.n < 1 || shot.n > count) {
+      issues.push({
+        code: 'SHOT_NUMBERING_INVALID',
+        paths: [`shots[${index}].n`],
+        message:
+          `Strict sequencing numbers ${count} shot${count === 1 ? '' : 's'} ` +
+          `1 through ${count}; found ${shot.n}.${missingNote}`,
+      });
+      return;
+    }
+
+    // In range, so report it only as a repeat, and only at the position
+    // it first appears — otherwise one repeated number would produce an
+    // issue per copy, all saying the same thing.
+    const indices = indicesByNumber.get(shot.n) ?? [];
+    if (indices.length > 1 && indices[0] === index) {
+      issues.push({
+        code: 'SHOT_NUMBERING_INVALID',
+        paths: indices.map((at) => `shots[${at}].n`),
+        message:
+          `Strict sequencing uses each of 1 through ${count} exactly once; ` +
+          `shot number ${shot.n} is used ${indices.length} times.${missingNote}`,
+      });
+    }
+  });
 
   return issues;
 }

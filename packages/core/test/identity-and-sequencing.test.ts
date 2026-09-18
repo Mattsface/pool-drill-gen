@@ -302,6 +302,75 @@ describe('shot ball references', () => {
     expect(codesFor(drill)).toEqual(['UNKNOWN_BALL_REFERENCE']);
   });
 
+  describe('a reference to a duplicated id is ambiguous, not resolved', () => {
+    // DUPLICATE_BALL_ID already says the identity is broken. Picking one
+    // of the duplicates to read a role from would make the output depend
+    // on which order the two balls happen to be stored in — the same
+    // mistake reported differently in two documents that differ only by a
+    // swap. So: the id exists, therefore not unknown; which ball it means
+    // is undecidable, therefore no obstacle error derived from it.
+    const cueBall: Ball = { id: 'cue', role: 'cue', at: { x: 0.2, y: 0.25 } };
+    const objectX: Ball = { id: 'x', role: 'object', at: { x: 0.6, y: 0.2 } };
+    const obstacleX: Ball = { id: 'x', role: 'obstacle', at: { x: 0.7, y: 0.3 } };
+
+    /** The valid drill with these balls, and one shot referencing "x". */
+    function referencingX(balls: [Ball, ...Ball[]]): Drill {
+      return {
+        ...withBalls(balls),
+        shots: [{ n: 1, type: 'pot', ballId: 'x', pocket: 'foot_right' }],
+      };
+    }
+
+    const orderings: [string, [Ball, ...Ball[]]][] = [
+      ['object before obstacle', [cueBall, objectX, obstacleX]],
+      ['obstacle before object', [cueBall, obstacleX, objectX]],
+    ];
+
+    for (const [label, balls] of orderings) {
+      it(`reports only the duplicate id, with the ${label}`, () => {
+        const drill = referencingX(balls);
+        const result = validateDrill(drill);
+
+        expect(result.valid).toBe(false);
+        expect(result.issues.map((issue) => issue.code)).toEqual(['DUPLICATE_BALL_ID']);
+        expect(result.issues[0]?.paths).toEqual(['balls[1].id', 'balls[2].id']);
+      });
+    }
+
+    it('is invariant under swapping the two duplicate balls', () => {
+      const objectFirst = validateDrill(referencingX([cueBall, objectX, obstacleX]));
+      const obstacleFirst = validateDrill(referencingX([cueBall, obstacleX, objectX]));
+
+      // Same codes, same paths: the duplicate issue's paths follow
+      // document order and both orderings put the duplicates at the same
+      // two positions, so even those match.
+      expect(obstacleFirst).toEqual(objectFirst);
+    });
+
+    it('still resolves and rejects a uniquely declared obstacle id', () => {
+      // Ambiguity suppresses the role check; it does not remove it.
+      const drill: Drill = {
+        ...withBalls([cueBall, obstacleX]),
+        shots: [{ n: 1, type: 'pot', ballId: 'x', pocket: 'foot_right' }],
+      };
+      const result = validateDrill(drill);
+
+      expect(result.issues.map((issue) => issue.code)).toEqual(['OBSTACLE_BALL_REFERENCED']);
+      expect(result.issues[0]?.paths).toEqual(['shots[0].ballId', 'balls[1].role']);
+    });
+
+    it('still reports an unknown reference alongside an unrelated duplicate', () => {
+      // The duplicated id is not the one the shot names, so the shot's
+      // own reference is judged normally.
+      const drill: Drill = {
+        ...withBalls([cueBall, objectX, obstacleX]),
+        shots: [{ n: 1, type: 'pot', ballId: 'no-such-ball', pocket: 'foot_right' }],
+      };
+
+      expect(codesFor(drill)).toEqual(['DUPLICATE_BALL_ID', 'UNKNOWN_BALL_REFERENCE']);
+    });
+  });
+
   it('does not add a rule for a shot referencing the cue ball', () => {
     // Deliberate, and a known discrepancy (see rules.ts): issue #7
     // forbids only obstacle references, ADR-0003 states the obstacle rule
@@ -325,69 +394,123 @@ describe('shot ball references', () => {
 });
 
 describe('strict sequencing', () => {
-  const contiguous: [number, ...number[]][] = [[1], [1, 2], [1, 2, 3]];
-  for (const numbers of contiguous) {
-    it(`accepts contiguous numbering from 1: [${numbers.join(', ')}]`, () => {
+  // The rule is about the numbers, not about array slots: for N shots the
+  // authored `n` values must collectively be exactly 1..N, each once.
+  // Issue #7 and ADR-0009 both say "contiguous starting at 1" and neither
+  // makes storage order a second, implicit sequence — the format already
+  // carries an explicit one in `n`.
+  const validNumbering: [number, ...number[]][] = [
+    [1],
+    [1, 2],
+    [1, 2, 3],
+    // Complete sets in a different array order. `n` says what order the
+    // shots are attempted in, so these are drills, not mistakes.
+    [3, 1, 2],
+    [2, 3, 1],
+  ];
+  for (const numbers of validNumbering) {
+    it(`accepts the complete set 1..N: [${numbers.join(', ')}]`, () => {
       const drill = withShotNumbers('strict', numbers);
       expect(issuesWithCode(drill, 'SHOT_NUMBERING_INVALID')).toEqual([]);
       expect(validateDrill(drill).valid).toBe(true);
     });
   }
 
-  it('rejects numbering that starts above 1', () => {
-    const drill = withShotNumbers('strict', [2]);
-    const issues = issuesWithCode(drill, 'SHOT_NUMBERING_INVALID');
+  // Each invalid case, with the paths the issues must carry. Messages are
+  // asserted by fragment below rather than in full: the code and the
+  // paths are the contract, the wording is not.
+  const invalidNumbering: [string, [number, ...number[]], string[][]][] = [
+    // One shot, numbered 2: out of range for 1..1, and 1 is missing.
+    ['does not start at 1', [2], [['shots[0].n']]],
+    // Two shots: 3 is out of range for 1..2, and 2 is missing.
+    ['has a gap', [1, 3], [['shots[1].n']]],
+    // Two shots: 1 twice, so 2 is missing. Reported once, at the first
+    // position, carrying both.
+    ['repeats a number', [1, 1], [['shots[0].n', 'shots[1].n']]],
+    // Three shots: 4 is out of range for 1..3, and 3 is missing.
+    ['runs past N', [1, 2, 4], [['shots[2].n']]],
+    // Three shots: 2 twice and 1 missing. In range, so it is the repeat
+    // that is reported.
+    ['repeats and omits', [2, 2, 3], [['shots[0].n', 'shots[1].n']]],
+  ];
+  for (const [label, numbers, expectedPaths] of invalidNumbering) {
+    it(`rejects numbering that ${label}: [${numbers.join(', ')}]`, () => {
+      const drill = withShotNumbers('strict', numbers);
+      const issues = issuesWithCode(drill, 'SHOT_NUMBERING_INVALID');
 
-    expect(validateDrill(drill).valid).toBe(false);
-    expect(issues).toHaveLength(1);
-    expect(issues[0]).toEqual({
-      code: 'SHOT_NUMBERING_INVALID',
-      paths: ['shots[0].n'],
-      message: 'Strict sequencing expected shot number 1; found 2.',
+      expect(validateDrill(drill).valid).toBe(false);
+      expect(issues.map((issue) => issue.paths)).toEqual(expectedPaths);
     });
-  });
+  }
 
-  it('rejects a gap', () => {
-    const drill = withShotNumbers('strict', [1, 3]);
-    const issues = issuesWithCode(drill, 'SHOT_NUMBERING_INVALID');
-
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.paths).toEqual(['shots[1].n']);
-    expect(issues[0]?.message).toBe('Strict sequencing expected shot number 2; found 3.');
-  });
-
-  it('rejects a duplicate number', () => {
-    const drill = withShotNumbers('strict', [1, 1]);
-    const issues = issuesWithCode(drill, 'SHOT_NUMBERING_INVALID');
+  it('names the out-of-range number and what is missing', () => {
+    const issues = issuesWithCode(withShotNumbers('strict', [1, 3]), 'SHOT_NUMBERING_INVALID');
 
     expect(issues).toHaveLength(1);
+    expect(issues[0]?.code).toBe('SHOT_NUMBERING_INVALID');
     expect(issues[0]?.paths).toEqual(['shots[1].n']);
-    expect(issues[0]?.message).toBe('Strict sequencing expected shot number 2; found 1.');
+    // A missing number has no position to point at, so it is named in the
+    // message instead — never as the sole description of a failure.
+    expect(issues[0]?.message).toContain('found 3');
+    expect(issues[0]?.message).toContain('Missing: 2');
   });
 
-  it('rejects reordered numbers without sorting them first', () => {
-    // [3, 1, 2] is the whole set 1..3 and is still wrong: the array order
-    // is the authored sequence, so sorting before comparing would accept
-    // exactly the mistake this rule exists to catch.
-    const drill = withShotNumbers('strict', [3, 1, 2]);
-    const issues = issuesWithCode(drill, 'SHOT_NUMBERING_INVALID');
+  it('names a repeated number once, carrying every position that uses it', () => {
+    const issues = issuesWithCode(withShotNumbers('strict', [2, 2, 3]), 'SHOT_NUMBERING_INVALID');
 
-    expect(issues).toHaveLength(3);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.paths).toEqual(['shots[0].n', 'shots[1].n']);
+    expect(issues[0]?.message).toContain('2 is used 2 times');
+    expect(issues[0]?.message).toContain('Missing: 1');
+  });
+
+  it('reports two unrelated repeats as two issues', () => {
+    // [1, 1, 3, 3] over four shots: 2 and 4 are both missing, and the two
+    // repeats are separate problems, grouped the way duplicate ids are.
+    const issues = issuesWithCode(
+      withShotNumbers('strict', [1, 1, 3, 3]),
+      'SHOT_NUMBERING_INVALID',
+    );
+
     expect(issues.map((issue) => issue.paths)).toEqual([
-      ['shots[0].n'],
-      ['shots[1].n'],
-      ['shots[2].n'],
+      ['shots[0].n', 'shots[1].n'],
+      ['shots[2].n', 'shots[3].n'],
     ]);
-    expect(issues[0]?.message).toBe('Strict sequencing expected shot number 1; found 3.');
-    expect(issues[1]?.message).toBe('Strict sequencing expected shot number 2; found 1.');
-    expect(issues[2]?.message).toBe('Strict sequencing expected shot number 3; found 2.');
   });
 
-  it('reports one issue per offending shot, leaving correct ones alone', () => {
-    const drill = withShotNumbers('strict', [1, 5, 3, 9]);
-    const issues = issuesWithCode(drill, 'SHOT_NUMBERING_INVALID');
+  it('reports one issue per out-of-range shot, leaving valid numbers alone', () => {
+    const issues = issuesWithCode(
+      withShotNumbers('strict', [1, 5, 3, 9]),
+      'SHOT_NUMBERING_INVALID',
+    );
 
     expect(issues.map((issue) => issue.paths)).toEqual([['shots[1].n'], ['shots[3].n']]);
+  });
+
+  it('is invariant under reordering a complete set', () => {
+    // The same numbers stored in any order are the same drill as far as
+    // sequencing is concerned, so every permutation validates alike.
+    const permutations: [number, ...number[]][] = [
+      [1, 2, 3],
+      [1, 3, 2],
+      [2, 1, 3],
+      [2, 3, 1],
+      [3, 1, 2],
+      [3, 2, 1],
+    ];
+    for (const numbers of permutations) {
+      expect(validateDrill(withShotNumbers('strict', numbers)).issues).toEqual([]);
+    }
+  });
+
+  it('does not sort or otherwise mutate the shots it is handed', () => {
+    const drill = withShotNumbers('strict', [3, 1, 2]);
+    const before = JSON.stringify(drill);
+
+    validateDrill(drill);
+
+    expect(JSON.stringify(drill)).toBe(before);
+    expect(drill.shots.map((shot) => shot.n)).toEqual([3, 1, 2]);
   });
 
   it('does not constrain how many shots a strict drill has', () => {
@@ -476,14 +599,18 @@ describe('aggregation across rules', () => {
 
     expect(result.valid).toBe(false);
     // No cue ball, a duplicated id, a dangling reference, an obstacle
-    // reference, and three wrong strict shot numbers — all at once, in
-    // document order: balls, then shots, then sequencing.
+    // reference, and two out-of-range strict shot numbers — all at once,
+    // in document order: balls, then shots, then sequencing.
+    //
+    // shots[0] names the duplicated id "b1" and contributes nothing of
+    // its own: ambiguous, so no role is read from it. Its number, 2, is
+    // within 1..3 and used once, so sequencing passes it too; 1 and 3 are
+    // missing, which the two issues below name in their messages.
     expect(result.issues.map((issue) => issue.code)).toEqual([
       'CUE_BALL_COUNT_INVALID',
       'DUPLICATE_BALL_ID',
       'UNKNOWN_BALL_REFERENCE',
       'OBSTACLE_BALL_REFERENCED',
-      'SHOT_NUMBERING_INVALID',
       'SHOT_NUMBERING_INVALID',
       'SHOT_NUMBERING_INVALID',
     ]);
@@ -492,7 +619,6 @@ describe('aggregation across rules', () => {
       ['balls[0].id', 'balls[1].id'],
       ['shots[1].ballId'],
       ['shots[2].ballId', 'balls[2].role'],
-      ['shots[0].n'],
       ['shots[1].n'],
       ['shots[2].n'],
     ]);
