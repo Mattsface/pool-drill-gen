@@ -15,6 +15,7 @@
 // pure function over an already-typed document, so it runs unchanged in
 // the CLI, a browser, a Worker, and tests.
 import type { Drill } from '@pool-drill-gen/schema';
+import { validateIdentityAndReferences, validateSequencing } from './rules.js';
 
 /**
  * The semantic failures format 0.1 can report.
@@ -29,9 +30,9 @@ import type { Drill } from '@pool-drill-gen/schema';
  * (progression models, region-versus-ball feasibility, spin and speed)
  * have no codes here because they have no rules.
  *
- * Every code below is reserved for a semantic rule that is already
- * planned but NOT yet implemented — see the per-code notes. Until those
- * rules land, validateDrill() reports nothing.
+ * The identity and sequencing codes are implemented (M1.6). The geometry
+ * codes below them are still reserved for rules that are planned but not
+ * yet written — see the per-code notes.
  */
 export const VALIDATION_CODES = [
   // --- Ball identity and shot references (M1.6, issue #7) ---
@@ -118,20 +119,20 @@ export interface ValidationResult {
  * Validates a drill's *meaning*, assuming its shape has already been
  * validated against the JSON Schema.
  *
- * Format 0.1 has no semantic rules implemented yet, so every document
- * this is handed comes back valid. The rules arrive in M1.6 (identity and
- * sequencing) and M1.8 (geometry); each contributes its issues to the
- * list below, and neither needs to change this function's signature or
- * its result shape.
+ * Every rule runs: validation reports everything wrong with a document,
+ * not the first thing, because a caller fixing a drill wants the whole
+ * list. Issues arrive in document order — balls before shots, and each
+ * group in array order — so output is stable across runs and diffable.
+ *
+ * Format 0.1 checks identity and sequencing (M1.6). Geometry (M1.8)
+ * appends to the same list and will need no change to this signature or
+ * to the result shape.
  */
 export function validateDrill(drill: Drill): ValidationResult {
   const issues: ValidationIssue[] = [
-    // Rules land here as plain functions over the document, e.g.
-    //   ...validateIdentity(drill),
-    //   ...validateSequencing(drill),
-    //   ...validateGeometry(drill),
-    // No rule is stubbed out in advance: an empty list is the honest
-    // description of what 0.1 checks today.
+    ...validateIdentityAndReferences(drill),
+    ...validateSequencing(drill),
+    // ...validateGeometry(drill), — M1.8, issue #9.
   ];
 
   return { valid: issues.length === 0, issues };
