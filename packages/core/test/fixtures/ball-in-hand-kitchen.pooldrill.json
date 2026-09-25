@@ -1,0 +1,37 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "ball-in-hand-kitchen",
+  "title": "Ball in hand behind the head string",
+  "description": "Place the cue ball anywhere in the kitchen with its centre on or behind the head string. Choose an angle, then pot the object ball in the foot-left pocket. Reset and try a different legal starting position.",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    {
+      "id": "free-cue",
+      "role": "cue",
+      "at": {
+        "shape": "rect",
+        "min": { "x": 0.0113, "y": 0.0113 },
+        "max": { "x": 0.2500, "y": 0.4887 }
+      }
+    },
+    { "id": "pot-ball", "role": "object", "number": 2, "at": { "x": 0.6800, "y": 0.2000 } }
+  ],
+  "sequencing": "single_shot",
+  "shots": [
+    { "n": 1, "type": "pot", "ballId": "pot-ball", "pocket": "foot_left" }
+  ],
+  "success": { "mode": "count", "attempts": 10, "target": 7 },
+  "skills": ["ball-in-hand", "shot-selection", "potting"],
+  "difficulty": 2,
+  "tags": ["kitchen", "starting-region", "head-string"],
+  "provenance": {
+    "author": "pool-drill-gen contributors",
+    "createdAt": "2026-09-25T00:00:00Z",
+    "license": "MIT"
+  }
+}
