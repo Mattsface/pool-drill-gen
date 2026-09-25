@@ -24,8 +24,8 @@
 // Reviewed, and no helper was manufactured to have something to assert.
 //
 // Nothing here validates anything. Bounds, overlap, and region checks are
-// M1.8 / issue #9; the last describe block asserts positively that they
-// still do not exist.
+// M1.8 / issue #9 and are tested in geometry-validation.test.ts; the last
+// describe block pins the helpers to arithmetic.
 import { describe, expect, it } from 'vitest';
 import type { Drill, Point } from '@pool-drill-gen/schema';
 import {
@@ -669,7 +669,8 @@ describe('§8.4 — ball in hand behind the head string, 9-foot table', () => {
    * §3.2 makes 4-decimal rounding a *writer* concern, so no rounding
    * lives in the geometry helpers and none is added here — this exists
    * solely to show that the unrounded values below are the ones the
-   * document's serialized example was rounded from.
+   * document's serialized example was quantized from. It is plain
+   * nearest rounding; §3.2's boundary rule is asserted separately.
    *
    * It rounds the shortest decimal form of the value rather than the
    * binary double, which matters: the nearest double to `0.01125` sits
@@ -695,10 +696,20 @@ describe('§8.4 — ball in hand behind the head string, 9-foot table', () => {
     expect(max.y).toBeCloseTo(0.48875, PRECISE);
   });
 
-  it('rounds to the documented serialized example at 4 decimal places', () => {
+  it('quantizes to the documented serialized example at 4 decimal places (§3.2)', () => {
+    const maxY = surfaceRatio(NINE_FT) - r;
+
+    // min: nearest 4 dp stays inside the legal domain, so it is used.
     expect(round4dp(r)).toBe(0.0113);
+    expect(0.0113).toBeGreaterThanOrEqual(r);
     expect(round4dp(0.25)).toBe(0.25);
-    expect(round4dp(surfaceRatio(NINE_FT) - r)).toBe(0.4888);
+
+    // max.y: nearest 4 dp (0.4888) would cross W/L - r, so
+    // constraint-preserving serialization takes the nearest legal
+    // 4-decimal value instead.
+    expect(round4dp(maxY)).toBe(0.4888);
+    expect(0.4888).toBeGreaterThan(maxY);
+    expect(0.4887).toBeLessThanOrEqual(maxY);
   });
 
   it('insets by a radius from three cushions and by nothing from the head string', () => {
@@ -814,8 +825,7 @@ describe('M1.7 scope', () => {
       },
       balls: [
         // Two balls at the same point, and one centre off the surface
-        // entirely. Both are physically impossible and both are
-        // semantically valid in 0.1 today.
+        // entirely. Both are physically impossible.
         { id: 'cue', role: 'cue', at: { x: 0.5, y: 0.25 } },
         { id: 'b1', role: 'object', at: { x: 0.5, y: 0.25 } },
         { id: 'b2', role: 'object', at: { x: 9, y: -4 } },
@@ -830,27 +840,18 @@ describe('M1.7 scope', () => {
     };
   }
 
-  it('wires no geometry rule into validateDrill()', () => {
-    // M1.8 / issue #9 will change this answer, and should. Until then,
-    // adding these helpers must not have changed a single verdict.
-    const result = validateDrill(geometricallyImpossibleDrill());
-    expect(result).toEqual({ valid: true, issues: [] });
-  });
-
-  it('leaves the geometry codes reserved and unused', () => {
-    const geometryCodes = [
-      'POINT_OUT_OF_BOUNDS',
-      'REGION_OUT_OF_BOUNDS',
-      'REGION_GEOMETRY_INVALID',
-      'BALL_OVERLAP',
-    ] as const;
-
-    for (const code of geometryCodes) {
-      // Still in the vocabulary (M1.5)…
+  it('leaves geometry verdicts to the M1.8 rules, which use the reserved codes', () => {
+    // M1.7 guarded that adding these helpers changed no verdict. M1.8
+    // (issue #9) wired the rules in, and this drill now fails the way it
+    // should — with the M1.5 codes, not new ones.
+    for (const code of ['POINT_OUT_OF_BOUNDS', 'BALL_OVERLAP'] as const) {
       expect(VALIDATION_CODES).toContain(code);
     }
-    // …and still reported by nothing.
-    expect(validateDrill(geometricallyImpossibleDrill()).issues).toEqual([]);
+    const result = validateDrill(geometricallyImpossibleDrill());
+    expect(result.issues.map(({ code, paths }) => ({ code, paths }))).toEqual([
+      { code: 'POINT_OUT_OF_BOUNDS', paths: ['balls[2].at'] },
+      { code: 'BALL_OVERLAP', paths: ['balls[0]', 'balls[1]'] },
+    ]);
   });
 
   it('adds no code to the vocabulary', () => {

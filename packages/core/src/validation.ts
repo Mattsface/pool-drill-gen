@@ -15,7 +15,8 @@
 // pure function over an already-typed document, so it runs unchanged in
 // the CLI, a browser, a Worker, and tests.
 import type { Drill } from '@pool-drill-gen/schema';
-import { validateIdentityAndReferences, validateSequencing } from './rules.js';
+import type { TableGeometry } from './geometry.js';
+import { validateGeometry, validateIdentityAndReferences, validateSequencing } from './rules.js';
 
 /**
  * The semantic failures format 0.1 can report.
@@ -30,9 +31,8 @@ import { validateIdentityAndReferences, validateSequencing } from './rules.js';
  * (progression models, region-versus-ball feasibility, spin and speed)
  * have no codes here because they have no rules.
  *
- * The identity and sequencing codes are implemented (M1.6). The geometry
- * codes below them are still reserved for rules that are planned but not
- * yet written — see the per-code notes.
+ * The identity and sequencing codes are implemented in M1.6, the
+ * geometry codes in M1.8.
  */
 export const VALIDATION_CODES = [
   // --- Ball identity and shot references (M1.6, issue #7) ---
@@ -115,24 +115,41 @@ export interface ValidationResult {
   issues: ValidationIssue[];
 }
 
+/** Options for {@link validateDrill}. */
+export interface ValidateDrillOptions {
+  /**
+   * The table geometry to check bounds and overlap against. Defaults to
+   * the drill's own `authoredFor.playingSurface` and
+   * `authoredFor.ballSet`.
+   *
+   * Present so that checking a drill against a different table — a
+   * layout authored on a 9-footer, practiced on a bar box (ADR-0005,
+   * docs/coordinates.md §8.3) — needs no change to any call site. Format
+   * 0.1 exercises only the default.
+   */
+  against?: TableGeometry;
+}
+
 /**
  * Validates a drill's *meaning*, assuming its shape has already been
  * validated against the JSON Schema.
  *
  * Every rule runs: validation reports everything wrong with a document,
  * not the first thing, because a caller fixing a drill wants the whole
- * list. Issues arrive in document order — balls before shots, and each
- * group in array order — so output is stable across runs and diffable.
- *
- * Format 0.1 checks identity and sequencing (M1.6). Geometry (M1.8)
- * appends to the same list and will need no change to this signature or
- * to the result shape.
+ * list. Issues arrive grouped by rule — identity, sequencing, geometry —
+ * and within each group in document order, so output is stable across
+ * runs and diffable.
  */
-export function validateDrill(drill: Drill): ValidationResult {
+export function validateDrill(drill: Drill, options: ValidateDrillOptions = {}): ValidationResult {
+  const geometry: TableGeometry = options.against ?? {
+    playingSurface: drill.authoredFor.playingSurface,
+    ballSet: drill.authoredFor.ballSet,
+  };
+
   const issues: ValidationIssue[] = [
     ...validateIdentityAndReferences(drill),
     ...validateSequencing(drill),
-    // ...validateGeometry(drill), — M1.8, issue #9.
+    ...validateGeometry(drill, geometry),
   ];
 
   return { valid: issues.length === 0, issues };
