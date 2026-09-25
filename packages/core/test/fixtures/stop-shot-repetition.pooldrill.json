@@ -1,0 +1,36 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "stop-shot-repetition",
+  "title": "Straight stop shot to the foot-left pocket",
+  "description": "Set the cue ball and object ball on the same line to the foot-left pocket. Make the ball and stop the cue ball near the object's starting spot. Reset both balls for each attempt; use a level cue and a centre-ball hit.",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    { "id": "white", "role": "cue", "at": { "x": 0.4000, "y": 0.3000 } },
+    { "id": "target", "role": "object", "number": 1, "at": { "x": 0.7000, "y": 0.1500 } }
+  ],
+  "sequencing": "single_shot",
+  "shots": [
+    {
+      "n": 1,
+      "type": "pot",
+      "ballId": "target",
+      "pocket": "foot_left",
+      "cueBallTarget": { "shape": "circle", "center": { "x": 0.7000, "y": 0.1500 }, "radius": 0.0350 },
+      "note": "A true stop leaves the cue ball near the object ball's original position."
+    }
+  ],
+  "success": { "mode": "count", "attempts": 10, "target": 7 },
+  "skills": ["stop-shot", "cue-ball-control", "straight-in-pot"],
+  "difficulty": 2,
+  "tags": ["fundamentals", "repetition", "centre-ball"],
+  "provenance": {
+    "author": "pool-drill-gen contributors",
+    "createdAt": "2026-09-25T00:00:00Z",
+    "license": "MIT"
+  }
+}

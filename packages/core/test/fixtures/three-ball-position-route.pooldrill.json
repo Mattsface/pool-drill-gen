@@ -1,0 +1,48 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "three-ball-position-route",
+  "title": "Three-ball alternating-corner route",
+  "description": "Pot the 1, 2, then 3 ball without moving the remaining balls. Work the cue ball into the indicated open areas after the first two pots so the next shot has a natural approach. Reset the layout after a miss.",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "game": "9-ball",
+  "balls": [
+    { "id": "cue-start", "role": "cue", "at": { "x": 0.2000, "y": 0.2500 } },
+    { "id": "first", "role": "object", "number": 1, "at": { "x": 0.4000, "y": 0.1800 } },
+    { "id": "second", "role": "object", "number": 2, "at": { "x": 0.6800, "y": 0.3300 } },
+    { "id": "third", "role": "object", "number": 3, "at": { "x": 0.8300, "y": 0.1700 } }
+  ],
+  "sequencing": "strict",
+  "shots": [
+    {
+      "n": 1,
+      "type": "pot",
+      "ballId": "first",
+      "pocket": "foot_left",
+      "cueBallTarget": { "shape": "circle", "center": { "x": 0.5300, "y": 0.2500 }, "radius": 0.0450 },
+      "note": "Leave an angle from the middle of the table for the 2 ball."
+    },
+    {
+      "n": 2,
+      "type": "pot",
+      "ballId": "second",
+      "pocket": "foot_right",
+      "cueBallTarget": { "shape": "circle", "center": { "x": 0.7300, "y": 0.2700 }, "radius": 0.0400 },
+      "note": "Keep the cue ball on the head side of the 3 ball."
+    },
+    { "n": 3, "type": "pot", "ballId": "third", "pocket": "foot_left" }
+  ],
+  "success": { "mode": "run_all" },
+  "skills": ["position", "route-planning", "cue-ball-control"],
+  "difficulty": 4,
+  "tags": ["three-ball-runout", "ordered", "corners"],
+  "provenance": {
+    "author": "pool-drill-gen contributors",
+    "createdAt": "2026-09-25T00:00:00Z",
+    "license": "MIT"
+  }
+}

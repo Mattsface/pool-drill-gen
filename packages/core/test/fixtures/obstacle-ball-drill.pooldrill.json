@@ -1,0 +1,30 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "obstacle-ball-drill",
+  "title": "Pot beside a blocking ball",
+  "description": "The 8 ball sits beside the cue ball's approach to the 3 ball, leaving only a narrow clear lane. Pot the 3 in the foot-left pocket while leaving the 8 ball in place. The 8 is a layout obstacle, not a target.",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    { "id": "white", "role": "cue", "at": { "x": 0.2300, "y": 0.3000 } },
+    { "id": "target-three", "role": "object", "number": 3, "at": { "x": 0.7500, "y": 0.2000 } },
+    { "id": "lane-blocker", "role": "obstacle", "number": 8, "at": { "x": 0.5300, "y": 0.2150 } }
+  ],
+  "sequencing": "single_shot",
+  "shots": [
+    { "n": 1, "type": "pot", "ballId": "target-three", "pocket": "foot_left", "note": "Keep the approach clear of the 8 ball." }
+  ],
+  "success": { "mode": "count", "attempts": 10, "target": 6 },
+  "skills": ["accuracy", "potting", "cue-ball-control"],
+  "difficulty": 3,
+  "tags": ["obstacle", "narrow-lane", "single-shot"],
+  "provenance": {
+    "author": "pool-drill-gen contributors",
+    "createdAt": "2026-09-25T00:00:00Z",
+    "license": "MIT"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "any-order-potting",
+  "title": "Four-ball open-table clearance",
+  "description": "Pot all four object balls in their named pockets. Choose the shot order freely; the shot numbers are diagram labels only. Reset the entire layout after a miss.",
+  "authoredFor": {
+    "tableSize": "8ft",
+    "playingSurface": { "lengthIn": 88, "widthIn": 44 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    { "id": "white", "role": "cue", "at": { "x": 0.3500, "y": 0.2500 } },
+    { "id": "left-near", "role": "object", "number": 1, "at": { "x": 0.4200, "y": 0.0900 } },
+    { "id": "right-near", "role": "object", "number": 3, "at": { "x": 0.6000, "y": 0.4000 } },
+    { "id": "left-far", "role": "object", "number": 5, "at": { "x": 0.7800, "y": 0.1300 } },
+    { "id": "right-far", "role": "object", "number": 7, "at": { "x": 0.7900, "y": 0.3600 } }
+  ],
+  "sequencing": "any_order",
+  "shots": [
+    { "n": 10, "type": "pot", "ballId": "left-near", "pocket": "side_left" },
+    { "n": 20, "type": "pot", "ballId": "right-near", "pocket": "side_right" },
+    { "n": 30, "type": "pot", "ballId": "left-far", "pocket": "foot_left" },
+    { "n": 40, "type": "pot", "ballId": "right-far", "pocket": "foot_right" }
+  ],
+  "success": { "mode": "run_all" },
+  "skills": ["shot-selection", "position", "potting"],
+  "difficulty": 3,
+  "tags": ["open-table", "any-order", "clearance"],
+  "provenance": {
+    "author": "pool-drill-gen contributors",
+    "createdAt": "2026-09-25T00:00:00Z",
+    "license": "MIT"
+  }
+}
