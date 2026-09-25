@@ -669,7 +669,8 @@ describe('§8.4 — ball in hand behind the head string, 9-foot table', () => {
    * §3.2 makes 4-decimal rounding a *writer* concern, so no rounding
    * lives in the geometry helpers and none is added here — this exists
    * solely to show that the unrounded values below are the ones the
-   * document's serialized example was rounded from.
+   * document's serialized example was quantized from. It is plain
+   * nearest rounding; §3.2's boundary rule is asserted separately.
    *
    * It rounds the shortest decimal form of the value rather than the
    * binary double, which matters: the nearest double to `0.01125` sits
@@ -695,10 +696,20 @@ describe('§8.4 — ball in hand behind the head string, 9-foot table', () => {
     expect(max.y).toBeCloseTo(0.48875, PRECISE);
   });
 
-  it('rounds to the documented serialized example at 4 decimal places', () => {
+  it('quantizes to the documented serialized example at 4 decimal places (§3.2)', () => {
+    const maxY = surfaceRatio(NINE_FT) - r;
+
+    // min: nearest 4 dp stays inside the legal domain, so it is used.
     expect(round4dp(r)).toBe(0.0113);
+    expect(0.0113).toBeGreaterThanOrEqual(r);
     expect(round4dp(0.25)).toBe(0.25);
-    expect(round4dp(surfaceRatio(NINE_FT) - r)).toBe(0.4888);
+
+    // max.y: nearest 4 dp (0.4888) would cross W/L - r, so
+    // constraint-preserving serialization takes the nearest legal
+    // 4-decimal value instead.
+    expect(round4dp(maxY)).toBe(0.4888);
+    expect(0.4888).toBeGreaterThan(maxY);
+    expect(0.4887).toBeLessThanOrEqual(maxY);
   });
 
   it('insets by a radius from three cushions and by nothing from the head string', () => {

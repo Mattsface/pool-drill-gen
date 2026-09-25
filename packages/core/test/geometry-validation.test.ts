@@ -203,16 +203,16 @@ describe('rectangle regions', () => {
     expect(issues(drillWith({ cueAt: rect(0.1, 0.1, 0.2, 0.4) }))).toEqual([]);
   });
 
-  it('accepts the §8.4 ball-in-hand kitchen region with every corner rounded inward', () => {
+  it('accepts the §8.4 ball-in-hand kitchen region on a 9-foot table', () => {
+    // The exact bounds are 0.01125 and 0.48875; constraint-preserving
+    // 4-decimal serialization (§3.2) gives 0.0113 and 0.4887.
     expect(issues(drillWith({ cueAt: rect(0.0113, 0.0113, 0.25, 0.4887) }))).toEqual([]);
   });
 
-  it('rejects §8.4 as printed, whose max.y rounds outward past W/L - r', () => {
-    // §8.4 prints max.y = 0.4888 for 0.5 - 0.01125 = 0.48875: rounded
-    // half-up, i.e. outward, while its min corner (0.0113 for 0.01125) is
-    // rounded inward. §4.1 is the rule and has no rounding allowance, so
-    // the printed example is 0.00005 out of bounds. Recorded here rather
-    // than hidden by a tolerance; see the M1.8 report.
+  it('rejects the §8.4 region with max.y rounded to nearest instead (0.4888)', () => {
+    // 0.4888 > W/L - r = 0.48875 by 0.00005. §4.1 has no rounding
+    // allowance: keeping values legal is the serializer's job (§3.2), and
+    // validation stays strict.
     expect(codes(drillWith({ cueAt: rect(0.0113, 0.0113, 0.25, 0.4888) }))).toEqual([
       'REGION_OUT_OF_BOUNDS',
     ]);
@@ -272,7 +272,7 @@ describe('rectangle regions', () => {
 
   it('rejects the §8.4 kitchen corner when rounded outward instead of inward', () => {
     // 0.0112 < r = 0.01125.
-    expect(codes(drillWith({ cueAt: rect(0.0112, 0.0113, 0.25, 0.4888) }))).toEqual([
+    expect(codes(drillWith({ cueAt: rect(0.0112, 0.0113, 0.25, 0.4887) }))).toEqual([
       'REGION_OUT_OF_BOUNDS',
     ]);
   });

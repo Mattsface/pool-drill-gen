@@ -1,7 +1,7 @@
 # Coordinate system and table geometry
 
 Status: **normative for format `0.x`**
-Last updated: 2026-08-28
+Last updated: 2026-09-25
 
 This document defines where things are on a table. Every other part of the
 project — schema, validator, renderer, CLI, PWA — derives its geometry from
@@ -110,15 +110,31 @@ format change.
 
 ### 3.2 Serialization precision
 
-Coordinates are **rounded to 4 decimal places when serialized**.
+Coordinates are **serialized to 4 decimal places**.
+
+An ordinary value serializes to the nearest 4-decimal value. When the nearest
+4-decimal value would cross a semantic geometry boundary — such as the
+radius-inset ball-centre limits of §4.1 — the value serializes instead to the
+nearest 4-decimal value that remains inside the legal domain. This is
+*constraint-preserving quantization*: a legal value must serialize to a legal
+value.
+
+| Exact value | Boundary | Nearest 4 dp | Serialized |
+|---|---|---|---|
+| `0.01125` | minimum, `r` | `0.0113` (inside) | `0.0113` |
+| `0.48875` | maximum, `W/L - r` | `0.4888` (outside) | `0.4887` |
+
+This is a rule for writers, not a validation tolerance. `validateDrill()`
+applies §4.1 exactly as written, and a serialized value outside the legal
+domain is invalid however it was produced.
 
 On a 9-foot table one unit in the fourth decimal place is `0.0001 × 100 in =
 0.01 in` — well below the precision at which anyone can place a ball. Fixed
 precision keeps diffs readable and keeps any future content hashing stable
 across runtimes.
 
-Implementations round on write. Readers must accept more precise input without
-error.
+Implementations quantize on write. Readers must accept more precise input
+without error.
 
 ---
 
@@ -351,14 +367,17 @@ Expressed as a rectangular placement region, inset by one ball radius:
 {
   "shape": "rect",
   "min": { "x": 0.0113, "y": 0.0113 },
-  "max": { "x": 0.2500, "y": 0.4888 }
+  "max": { "x": 0.2500, "y": 0.4887 }
 }
 ```
 
-`0.0113` is `r = 0.01125` rounded to 4 dp; `0.4888` is `0.5 - 0.01125`
-rounded. The region's `max.x` is the head string at `0.25` exactly, because a
-cue ball placed with its centre on the head string is behind the line under
-standard rules only if it is *not past* it — implementations treat the
+The exact minimum on both axes is `r = 0.01125`; its nearest 4-decimal value,
+`0.0113`, lies inside the legal domain and is used as is. The exact maximum `y`
+is `0.5 - 0.01125 = 0.48875`; its nearest 4-decimal value, `0.4888`, would
+cross the legal boundary, so constraint-preserving serialization (§3.2)
+produces `0.4887`. The region's `max.x` is the head string at `0.25` exactly,
+because a cue ball placed with its centre on the head string is behind the line
+under standard rules only if it is *not past* it — implementations treat the
 boundary as inclusive.
 
 ### 8.5 Canonical render mapping
