@@ -112,17 +112,21 @@ format change.
 
 Coordinates are **serialized to 4 decimal places**.
 
-An ordinary value serializes to the nearest 4-decimal value. When the nearest
-4-decimal value would cross a semantic geometry boundary — such as the
-radius-inset ball-centre limits of §4.1 — the value serializes instead to the
-nearest 4-decimal value that remains inside the legal domain. This is
-*constraint-preserving quantization*: a legal value must serialize to a legal
-value.
+The serialized value is determined by the exact decimal value, in order:
 
-| Exact value | Boundary | Nearest 4 dp | Serialized |
-|---|---|---|---|
-| `0.01125` | minimum, `r` | `0.0113` (inside) | `0.0113` |
-| `0.48875` | maximum, `W/L - r` | `0.4888` (outside) | `0.4887` |
+1. **Nearest.** A value serializes to the nearest 4-decimal value.
+2. **Ties.** When two 4-decimal values are equally near, choose the higher
+   value.
+3. **Constraint preservation.** When the value chosen by rules 1–2 would cross
+   a semantic geometry boundary — such as the radius-inset ball-centre limits
+   of §4.1 — serialize instead to the nearest 4-decimal value that remains
+   inside the legal domain. This overrides rules 1–2: a legal value must
+   serialize to a legal value.
+
+| Exact value | Boundary | Candidates | Rules 1–2 | Legal? | Serialized |
+|---|---|---|---|---|---|
+| `0.01125` | minimum, `r` | `0.0112` / `0.0113` (tie) | `0.0113` | yes | `0.0113` |
+| `0.48875` | maximum, `W/L - r` | `0.4887` / `0.4888` (tie) | `0.4888` | no | `0.4887` |
 
 This is a rule for writers, not a validation tolerance. `validateDrill()`
 applies §4.1 exactly as written, and a serialized value outside the legal

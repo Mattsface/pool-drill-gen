@@ -112,6 +112,30 @@ describe('fixed-point bounds', () => {
     expect(issues(drill).map((issue) => issue.paths)).toEqual([['balls[0].at'], ['balls[2].at']]);
   });
 
+  it('accepts the §8.4 serialized limits and rejects their outward-rounded neighbours', () => {
+    // 9 ft: r = 0.01125 and W/L - r = 0.48875 (§3.2, §8.4).
+    expect(issues(drillWith({ cueAt: { x: 0.0113, y: 0.0113 } }))).toEqual([]);
+    expect(issues(drillWith({ cueAt: { x: 0.25, y: 0.4887 } }))).toEqual([]);
+    expect(codes(drillWith({ cueAt: { x: 0.0112, y: 0.25 } }))).toEqual(['POINT_OUT_OF_BOUNDS']);
+    expect(codes(drillWith({ cueAt: { x: 0.25, y: 0.0112 } }))).toEqual(['POINT_OUT_OF_BOUNDS']);
+    expect(codes(drillWith({ cueAt: { x: 0.25, y: 0.4888 } }))).toEqual(['POINT_OUT_OF_BOUNDS']);
+  });
+
+  it.each([1e-9, 1e-12, 1e-15])(
+    'rejects a centre outside the legal area by only %s — bounds carry no epsilon',
+    (excess) => {
+      const outside = [
+        { x: area.minX - excess, y: 0.25 },
+        { x: area.maxX + excess, y: 0.25 },
+        { x: 0.25, y: area.minY - excess },
+        { x: 0.25, y: area.maxY + excess },
+      ];
+      for (const cueAt of outside) {
+        expect(codes(drillWith({ cueAt })), JSON.stringify(cueAt)).toEqual(['POINT_OUT_OF_BOUNDS']);
+      }
+    },
+  );
+
   it('computes the y bound from W / L on a wider-than-2:1 surface', () => {
     // 100 × 60: y_max = 0.6, so y = 0.55 is legal here and would not be
     // under a hardcoded 0.5.
@@ -181,13 +205,14 @@ describe('circle regions', () => {
   });
 
   it('accepts a circle whose extent exactly touches the legal boundary', () => {
-    // Centred across the width with radius (W/L)/2 - r: spans exactly
-    // [r, W/L - r] in y.
-    const radius = (area.maxY - area.minY) / 2;
-    const centreY = (area.minY + area.maxY) / 2;
-    expect(issues(drillWith({ cueAt: circle(0.5, centreY, radius) }))).toEqual([]);
-    // And touching the head inset.
-    expect(issues(drillWith({ cueAt: circle(area.minX + 0.05, 0.25, 0.05) }))).toEqual([]);
+    // Bounds are compared exactly, so these are authored values whose
+    // extent is exact in binary arithmetic as well as in decimal.
+    //
+    // Centre y 0.25, radius 0.23875: spans exactly [0.01125, 0.48875],
+    // i.e. [r, W/L - r], touching both side limits.
+    expect(issues(drillWith({ cueAt: circle(0.5, 0.25, 0.23875) }))).toEqual([]);
+    // Centre x 0.93875, radius 0.05: reaches exactly 0.98875 = 1 - r.
+    expect(issues(drillWith({ cueAt: circle(0.93875, 0.25, 0.05) }))).toEqual([]);
   });
 });
 
@@ -337,6 +362,30 @@ describe('fixed-ball overlap', () => {
       extra: [{ id: 'b2', role: 'object', at: { x: 0.5135, y: 0.268 } }],
     });
     expect(issues(drill)).toEqual([]);
+  });
+
+  it('rejects a genuine overlap just inside one diameter', () => {
+    // 0.0224 apart against 2r = 0.0225: 0.01 in of real overlap, far
+    // beyond any floating-point noise.
+    const drill = drillWith({
+      cueAt: { x: 0.5, y: 0.25 },
+      extra: [{ id: 'b2', role: 'object', at: { x: 0.5224, y: 0.25 } }],
+    });
+    expect(codes(drill)).toEqual(['BALL_OVERLAP']);
+  });
+
+  it('keeps overlap noise handling out of bounds validation', () => {
+    // Frozen together (no overlap), but one ball is past W/L - r by
+    // 1e-13 — less than the overlap comparison's floating-point slack.
+    // The bounds check still rejects it: that slack never touches §4.1.
+    const area = legal(NINE_FOOT);
+    const drill = drillWith({
+      cueAt: { x: 0.5, y: area.maxY + 1e-13 },
+      extra: [{ id: 'b2', role: 'object', at: { x: 0.5, y: area.maxY + 1e-13 - 0.0225 } }],
+    });
+    expect(issues(drill)).toEqual([
+      { code: 'POINT_OUT_OF_BOUNDS', paths: ['balls[0].at'], message: expect.any(String) },
+    ]);
   });
 
   it('rejects overlapping balls, naming both', () => {

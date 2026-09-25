@@ -264,23 +264,24 @@ function validateStrictNumbering(shots: Drill['shots']): ValidationIssue[] {
 }
 
 /**
- * Tolerance for comparisons between computed geometry values, in
- * normalized units.
+ * Floating-point slack for the overlap comparison only, in normalized
+ * units.
  *
- * This is floating-point hygiene, not a format rule. Two balls authored
+ * This is numerical hygiene, not a format tolerance. Two balls authored
  * exactly one diameter apart on a 9-foot table — centres at 0.5 and
- * 0.5225 — compute a separation of 0.022499999999999964, not 0.0225, and
- * would otherwise be reported as overlapping when the spec says equality
- * means frozen together (docs/coordinates.md §4.2). The same noise can
- * push a ball frozen on a cushion a hair past `1 - r`.
+ * 0.5225 — compute a separation of 0.022499999999999964, not 0.0225,
+ * because neither decimal has an exact binary representation. The spec
+ * says equality means frozen together (docs/coordinates.md §4.2), so that
+ * arithmetic noise alone must not produce BALL_OVERLAP.
  *
- * 1e-9 is 0.0000001 in on a 9-foot table: far too small to excuse any
- * real placement, and orders of magnitude below the 4-decimal-place
- * serialization grain (§3.2), so it cannot hide a rounding mistake —
- * only binary-fraction noise. Region well-formedness (`radius > 0`,
- * `min < max`) compares authored numbers directly and uses no tolerance.
+ * It applies to one comparison: a computed separation against a computed
+ * minimum separation. 1e-12 covers IEEE-754 rounding in that arithmetic
+ * with a wide margin (the noise above is about 4e-17) and is 1e-10 in on
+ * a 9-foot table, so it cannot excuse any real overlap. It is never
+ * applied to bounds: §4.1 is compared exactly, and keeping authored
+ * values legal is the serializer's job (§3.2).
  */
-const TOLERANCE = 1e-9;
+const SEPARATION_NOISE = 1e-12;
 
 /**
  * Where a ball centre may legally be: the playing surface inset by one
@@ -306,10 +307,10 @@ function legalAreaFor(geometry: TableGeometry): LegalArea {
 
 function pointInArea(point: Point, area: LegalArea): boolean {
   return (
-    point.x >= area.minX - TOLERANCE &&
-    point.x <= area.maxX + TOLERANCE &&
-    point.y >= area.minY - TOLERANCE &&
-    point.y <= area.maxY + TOLERANCE
+    point.x >= area.minX &&
+    point.x <= area.maxX &&
+    point.y >= area.minY &&
+    point.y <= area.maxY
   );
 }
 
@@ -414,7 +415,7 @@ export function validateGeometry(drill: Drill, geometry: TableGeometry): Validat
       const a = fixed[i];
       const b = fixed[j];
       const separation = distance(a.at, b.at);
-      if (separation < minimumSeparation - TOLERANCE) {
+      if (separation < minimumSeparation - SEPARATION_NOISE) {
         issues.push({
           code: 'BALL_OVERLAP',
           paths: [`balls[${a.index}]`, `balls[${b.index}]`],
