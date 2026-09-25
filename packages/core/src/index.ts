@@ -5,10 +5,15 @@
 // apps/cli. Everything here must run unchanged in Node, a browser, and a
 // Cloudflare Worker.
 export { validateDrill, VALIDATION_CODES } from './validation.js';
-export type { ValidationCode, ValidationIssue, ValidationResult } from './validation.js';
+export type {
+  ValidateDrillOptions,
+  ValidationCode,
+  ValidationIssue,
+  ValidationResult,
+} from './validation.js';
 
 // Geometry primitives (M1.7, issue #8): the coordinate mathematics of
 // docs/coordinates.md as plain functions. Arithmetic only — the geometry
-// *rules* that consume these are M1.8.
+// *rules* that consume these (M1.8) run inside validateDrill().
 export { surfaceRatio, ballRadius, distance, fromDiamonds, toDiamonds } from './geometry.js';
-export type { PlayingSurface, BallSet, DiamondPoint } from './geometry.js';
+export type { PlayingSurface, BallSet, DiamondPoint, TableGeometry } from './geometry.js';

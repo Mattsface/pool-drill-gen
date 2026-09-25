@@ -6,8 +6,9 @@
 // accepts, meaning validation rejects, with a structured code and paths.
 //
 // Nothing here checks geometry. Bounds, overlap, and region shape are
-// M1.8 (issue #9), and the fixtures below are deliberately laid out so no
-// future geometry rule turns a focused assertion into a surprise.
+// M1.8 (issue #9) and tested in geometry-validation.test.ts; the fixtures
+// below are laid out legally on their table so no geometry rule turns a
+// focused assertion into a surprise.
 import { describe, expect, it } from 'vitest';
 import type { Ball, Drill, Shot } from '@pool-drill-gen/schema';
 import {
@@ -667,36 +668,5 @@ describe('aggregation across rules', () => {
 
     expect(() => validateDrill(drill)).not.toThrow();
     expect(codesFor(drill)).toEqual(['SHOT_NUMBERING_INVALID']);
-  });
-});
-
-describe('no geometry rule is implemented here', () => {
-  it('accepts positions outside the playing surface', () => {
-    // M1.8 (issue #9) owns bounds. Until then a wild coordinate is
-    // semantically valid, and this test says so rather than leaving the
-    // silence ambiguous.
-    const drill = withBalls([
-      { id: 'cue', role: 'cue', at: { x: 5, y: -3 } },
-      { id: 'b1', role: 'object', at: { x: -0.0001, y: 0.9 } },
-    ]);
-    expect(validateDrill(drill)).toEqual({ valid: true, issues: [] });
-  });
-
-  it('accepts balls placed on top of one another and a backwards rectangle', () => {
-    const overlapping = withBalls([
-      { id: 'cue', role: 'cue', at: { x: 0.5, y: 0.25 } },
-      { id: 'b1', role: 'object', at: { x: 0.5, y: 0.25 } },
-    ]);
-    const backwardsRect = withBalls([
-      { id: 'cue', role: 'cue', at: { x: 0.2, y: 0.25 } },
-      {
-        id: 'b1',
-        role: 'object',
-        at: { shape: 'rect', min: { x: 0.9, y: 0.4 }, max: { x: 0.1, y: 0.1 } },
-      },
-    ]);
-
-    expect(validateDrill(overlapping).valid).toBe(true);
-    expect(validateDrill(backwardsRect).valid).toBe(true);
   });
 });

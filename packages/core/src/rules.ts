@@ -12,9 +12,12 @@
 // plain object or a Set where insertion order would not be the document's
 // order.
 //
-// Geometry rules (M1.8, issue #9) are deliberately absent: no bounds, no
-// overlap, no region checks, and no table dimensions are read here.
-import type { Drill } from '@pool-drill-gen/schema';
+// Identity and sequencing rules (M1.6) read no table dimensions. The
+// geometry rules (M1.8) read them only through the TableGeometry they are
+// handed, never from the drill directly, so the same rules can later be
+// run against a table other than the authoring one.
+import type { CircleRegion, Drill, Point, RectRegion, Region } from '@pool-drill-gen/schema';
+import { ballRadius, distance, surfaceRatio, type TableGeometry } from './geometry.js';
 import type { ValidationIssue } from './validation.js';
 
 /**
@@ -258,4 +261,259 @@ function validateStrictNumbering(shots: Drill['shots']): ValidationIssue[] {
   });
 
   return issues;
+}
+
+/**
+ * Tolerance for comparisons between computed geometry values, in
+ * normalized units.
+ *
+ * This is floating-point hygiene, not a format rule. Two balls authored
+ * exactly one diameter apart on a 9-foot table — centres at 0.5 and
+ * 0.5225 — compute a separation of 0.022499999999999964, not 0.0225, and
+ * would otherwise be reported as overlapping when the spec says equality
+ * means frozen together (docs/coordinates.md §4.2). The same noise can
+ * push a ball frozen on a cushion a hair past `1 - r`.
+ *
+ * 1e-9 is 0.0000001 in on a 9-foot table: far too small to excuse any
+ * real placement, and orders of magnitude below the 4-decimal-place
+ * serialization grain (§3.2), so it cannot hide a rounding mistake —
+ * only binary-fraction noise. Region well-formedness (`radius > 0`,
+ * `min < max`) compares authored numbers directly and uses no tolerance.
+ */
+const TOLERANCE = 1e-9;
+
+/**
+ * Where a ball centre may legally be: the playing surface inset by one
+ * ball radius on every side (docs/coordinates.md §4.1). Inclusive at both
+ * ends — a centre exactly at `x = r` is frozen on the head cushion, which
+ * is legal.
+ */
+interface LegalArea {
+  /** Ball radius, normalized. */
+  r: number;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+function legalAreaFor(geometry: TableGeometry): LegalArea {
+  const r = ballRadius(geometry.playingSurface, geometry.ballSet);
+  // W / L from the surface, never a literal (ADR-0004).
+  const yMax = surfaceRatio(geometry.playingSurface);
+  return { r, minX: r, maxX: 1 - r, minY: r, maxY: yMax - r };
+}
+
+function pointInArea(point: Point, area: LegalArea): boolean {
+  return (
+    point.x >= area.minX - TOLERANCE &&
+    point.x <= area.maxX + TOLERANCE &&
+    point.y >= area.minY - TOLERANCE &&
+    point.y <= area.maxY + TOLERANCE
+  );
+}
+
+/** The one point-versus-region discriminator: a placement without `shape` is a point (ADR-0008). */
+function isRegion(placement: Point | Region): placement is Region {
+  return 'shape' in placement;
+}
+
+/** A number for a message: enough digits to see a radius-sized difference, no float noise. */
+function show(value: number): string {
+  return String(Number(value.toFixed(6)));
+}
+
+function describeArea(area: LegalArea): string {
+  return (
+    `x in [${show(area.minX)}, ${show(area.maxX)}], ` +
+    `y in [${show(area.minY)}, ${show(area.maxY)}]`
+  );
+}
+
+/**
+ * Placement bounds, region well-formedness, and fixed-ball overlap, all
+ * against the given table geometry (ADR-0005, ADR-0008,
+ * docs/coordinates.md §4).
+ *
+ * `validateDrill()` passes the drill's own `authoredFor` geometry unless
+ * the caller supplies another; this function never reads `authoredFor`
+ * itself, and never reads the nominal `tableSize` label at all.
+ *
+ * Three rules, in this order:
+ *
+ * 1. Every `balls[].at` — then every `shots[].cueBallTarget` — must be
+ *    legal. A point must lie in the legal area (`POINT_OUT_OF_BOUNDS`). A
+ *    region must first be well-formed (`REGION_GEOMETRY_INVALID`) and
+ *    then lie entirely inside the legal area (`REGION_OUT_OF_BOUNDS`).
+ * 2. A region that is not well-formed is not also checked for bounds.
+ *    A circle with a negative radius, or a rectangle whose corners are
+ *    swapped, has no extent to compare — and repairing it (taking
+ *    `|radius|`, swapping `min` and `max`) to produce a second issue
+ *    would guess at what the author meant. One mistake, one issue.
+ * 3. Every pair of *fixed-point* balls must be at least one diameter
+ *    apart (`BALL_OVERLAP`). A ball placed by region takes no part: whether
+ *    a legal position exists inside a region given the other balls is a
+ *    documented 0.1 gap (ADR-0008), not something approximated here.
+ *
+ * Issues come back balls first in array order, then shots in array
+ * order, then overlaps ordered by the first ball of each pair and then
+ * the second.
+ */
+export function validateGeometry(drill: Drill, geometry: TableGeometry): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const area = legalAreaFor(geometry);
+
+  // --- Placements -----------------------------------------------------
+  drill.balls.forEach((ball, index) => {
+    const path = `balls[${index}].at`;
+    const subject = `Ball ${JSON.stringify(ball.id)}`;
+    if (isRegion(ball.at)) {
+      issues.push(...validateRegion(ball.at, path, `${subject} placement region`, area));
+    } else if (!pointInArea(ball.at, area)) {
+      issues.push({
+        code: 'POINT_OUT_OF_BOUNDS',
+        paths: [path],
+        message:
+          `${subject} is centred at (${show(ball.at.x)}, ${show(ball.at.y)}), outside the ` +
+          `legal area ${describeArea(area)} — the playing surface inset by one ball radius.`,
+      });
+    }
+  });
+
+  // --- Position goals -------------------------------------------------
+  //
+  // A cue-ball target is the same Region primitive as a placement region
+  // and describes where the cue ball's centre should finish, so ADR-0008's
+  // region validation applies to it unchanged.
+  drill.shots.forEach((shot, index) => {
+    if (shot.cueBallTarget === undefined) return;
+    issues.push(
+      ...validateRegion(
+        shot.cueBallTarget,
+        `shots[${index}].cueBallTarget`,
+        `Shot ${index + 1} cue-ball target`,
+        area,
+      ),
+    );
+  });
+
+  // --- Fixed-ball overlap ---------------------------------------------
+  //
+  // One issue per overlapping pair, naming both balls: three balls stacked
+  // on one spot are three pairwise problems, and each can be fixed
+  // independently. Balls outside the legal area still take part — being
+  // out of bounds and overlapping another ball are separate facts.
+  const fixed: { index: number; id: string; at: Point }[] = [];
+  drill.balls.forEach((ball, index) => {
+    if (!isRegion(ball.at)) fixed.push({ index, id: ball.id, at: ball.at });
+  });
+
+  const minimumSeparation = 2 * area.r;
+  for (let i = 0; i < fixed.length; i += 1) {
+    for (let j = i + 1; j < fixed.length; j += 1) {
+      const a = fixed[i];
+      const b = fixed[j];
+      const separation = distance(a.at, b.at);
+      if (separation < minimumSeparation - TOLERANCE) {
+        issues.push({
+          code: 'BALL_OVERLAP',
+          paths: [`balls[${a.index}]`, `balls[${b.index}]`],
+          message:
+            `Balls ${JSON.stringify(a.id)} and ${JSON.stringify(b.id)} overlap at their ` +
+            `authored positions: centres are ${show(separation)} apart, and at least ` +
+            `${show(minimumSeparation)} (one ball diameter) is required.`,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * One region's well-formedness and bounds. Bounds are checked only when
+ * the region is well-formed — see rule 2 on {@link validateGeometry}.
+ */
+function validateRegion(
+  region: Region,
+  path: string,
+  subject: string,
+  area: LegalArea,
+): ValidationIssue[] {
+  return region.shape === 'circle'
+    ? validateCircle(region, path, subject, area)
+    : validateRect(region, path, subject, area);
+}
+
+function validateCircle(
+  circle: CircleRegion,
+  path: string,
+  subject: string,
+  area: LegalArea,
+): ValidationIssue[] {
+  if (!(circle.radius > 0)) {
+    return [
+      {
+        code: 'REGION_GEOMETRY_INVALID',
+        paths: [`${path}.radius`],
+        message: `${subject} is a circle with radius ${show(circle.radius)}; the radius must be greater than zero.`,
+      },
+    ];
+  }
+
+  // The circle is the set of places the ball centre may go, so its whole
+  // extent — not just its centre — must fit the legal area. For a circle
+  // that is exactly its axis-aligned bounding box.
+  const { center, radius } = circle;
+  const inBounds =
+    pointInArea({ x: center.x - radius, y: center.y - radius }, area) &&
+    pointInArea({ x: center.x + radius, y: center.y + radius }, area);
+
+  if (inBounds) return [];
+  return [
+    {
+      code: 'REGION_OUT_OF_BOUNDS',
+      paths: [path],
+      message:
+        `${subject} (centre (${show(center.x)}, ${show(center.y)}), radius ${show(radius)}) ` +
+        `extends outside the legal area ${describeArea(area)} — the playing surface inset by one ball radius.`,
+    },
+  ];
+}
+
+function validateRect(
+  rect: RectRegion,
+  path: string,
+  subject: string,
+  area: LegalArea,
+): ValidationIssue[] {
+  // Strictly less on both axes (ADR-0008). A zero-width rectangle is
+  // rejected, and swapped corners are reported, never swapped back.
+  const issues: ValidationIssue[] = [];
+  for (const axis of ['x', 'y'] as const) {
+    if (!(rect.min[axis] < rect.max[axis])) {
+      issues.push({
+        code: 'REGION_GEOMETRY_INVALID',
+        paths: [`${path}.min.${axis}`, `${path}.max.${axis}`],
+        message:
+          `${subject} is a rectangle whose min.${axis} (${show(rect.min[axis])}) is not ` +
+          `less than its max.${axis} (${show(rect.max[axis])}).`,
+      });
+    }
+  }
+  if (issues.length > 0) return issues;
+
+  // A well-formed rectangle is inside the legal area exactly when both of
+  // its corners are.
+  if (pointInArea(rect.min, area) && pointInArea(rect.max, area)) return [];
+  return [
+    {
+      code: 'REGION_OUT_OF_BOUNDS',
+      paths: [path],
+      message:
+        `${subject} (min (${show(rect.min.x)}, ${show(rect.min.y)}), ` +
+        `max (${show(rect.max.x)}, ${show(rect.max.y)})) extends outside the legal area ` +
+        `${describeArea(area)} — the playing surface inset by one ball radius.`,
+    },
+  ];
 }

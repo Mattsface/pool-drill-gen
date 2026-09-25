@@ -5,7 +5,7 @@
 // normalized radius of this ball on this table", "how far apart are these
 // two points", "where is diamond (4,2)" — and never "is this drill
 // valid". Geometry *validation* (POINT_OUT_OF_BOUNDS, BALL_OVERLAP,
-// region checks) is M1.8 / issue #9 and builds on these; nothing here
+// region checks) lives in rules.ts and builds on these; nothing here
 // returns an issue, reads a whole drill, or knows what a rule is.
 //
 // The project's geometry/physics boundary (docs/coordinates.md §9) holds
@@ -29,6 +29,16 @@ export type PlayingSurface = AuthoredFor['playingSurface'];
 
 /** The ball set a drill was authored with (ADR-0005). Aliased, not restated. */
 export type BallSet = AuthoredFor['ballSet'];
+
+/**
+ * The physical setup geometry is checked against: a playing surface and
+ * a ball set, and nothing else (ADR-0005).
+ *
+ * Picked from the generated `AuthoredFor` type rather than restated. The
+ * nominal `tableSize` label is deliberately not part of it — geometry is
+ * never derived from the label.
+ */
+export type TableGeometry = Pick<AuthoredFor, 'playingSurface' | 'ballSet'>;
 
 /**
  * A position in diamond coordinates (docs/coordinates.md §7).

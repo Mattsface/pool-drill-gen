@@ -24,8 +24,8 @@
 // Reviewed, and no helper was manufactured to have something to assert.
 //
 // Nothing here validates anything. Bounds, overlap, and region checks are
-// M1.8 / issue #9; the last describe block asserts positively that they
-// still do not exist.
+// M1.8 / issue #9 and are tested in geometry-validation.test.ts; the last
+// describe block pins the helpers to arithmetic.
 import { describe, expect, it } from 'vitest';
 import type { Drill, Point } from '@pool-drill-gen/schema';
 import {
@@ -814,8 +814,7 @@ describe('M1.7 scope', () => {
       },
       balls: [
         // Two balls at the same point, and one centre off the surface
-        // entirely. Both are physically impossible and both are
-        // semantically valid in 0.1 today.
+        // entirely. Both are physically impossible.
         { id: 'cue', role: 'cue', at: { x: 0.5, y: 0.25 } },
         { id: 'b1', role: 'object', at: { x: 0.5, y: 0.25 } },
         { id: 'b2', role: 'object', at: { x: 9, y: -4 } },
@@ -830,27 +829,18 @@ describe('M1.7 scope', () => {
     };
   }
 
-  it('wires no geometry rule into validateDrill()', () => {
-    // M1.8 / issue #9 will change this answer, and should. Until then,
-    // adding these helpers must not have changed a single verdict.
-    const result = validateDrill(geometricallyImpossibleDrill());
-    expect(result).toEqual({ valid: true, issues: [] });
-  });
-
-  it('leaves the geometry codes reserved and unused', () => {
-    const geometryCodes = [
-      'POINT_OUT_OF_BOUNDS',
-      'REGION_OUT_OF_BOUNDS',
-      'REGION_GEOMETRY_INVALID',
-      'BALL_OVERLAP',
-    ] as const;
-
-    for (const code of geometryCodes) {
-      // Still in the vocabulary (M1.5)…
+  it('leaves geometry verdicts to the M1.8 rules, which use the reserved codes', () => {
+    // M1.7 guarded that adding these helpers changed no verdict. M1.8
+    // (issue #9) wired the rules in, and this drill now fails the way it
+    // should — with the M1.5 codes, not new ones.
+    for (const code of ['POINT_OUT_OF_BOUNDS', 'BALL_OVERLAP'] as const) {
       expect(VALIDATION_CODES).toContain(code);
     }
-    // …and still reported by nothing.
-    expect(validateDrill(geometricallyImpossibleDrill()).issues).toEqual([]);
+    const result = validateDrill(geometricallyImpossibleDrill());
+    expect(result.issues.map(({ code, paths }) => ({ code, paths }))).toEqual([
+      { code: 'POINT_OUT_OF_BOUNDS', paths: ['balls[2].at'] },
+      { code: 'BALL_OVERLAP', paths: ['balls[0]', 'balls[1]'] },
+    ]);
   });
 
   it('adds no code to the vocabulary', () => {
