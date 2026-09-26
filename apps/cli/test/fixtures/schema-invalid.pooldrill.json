@@ -1,0 +1,17 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "schema-invalid",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    { "id": "white", "role": "cue", "at": { "x": 0.4, "y": 0.3 } },
+    { "id": "target", "role": "striped", "at": { "x": 0.7, "y": 0.15 } }
+  ],
+  "sequencing": "single_shot",
+  "shots": [{ "n": 1, "type": "pot", "ballId": "target", "pocket": "foot_left" }],
+  "success": { "mode": "count", "attempts": 10, "target": 7 }
+}

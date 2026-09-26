@@ -1,0 +1,16 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "no-cue-ball",
+  "title": "No cue ball",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [{ "id": "target", "role": "object", "at": { "x": 0.7, "y": 0.15 } }],
+  "sequencing": "single_shot",
+  "shots": [{ "n": 1, "type": "pot", "ballId": "target", "pocket": "foot_left" }],
+  "success": { "mode": "count", "attempts": 10, "target": 7 },
+  "provenance": { "author": "pool-drill-gen contributors", "createdAt": "2026-09-26T00:00:00Z", "license": "MIT" }
+}
