@@ -17,3 +17,8 @@ export type {
 // *rules* that consume these (M1.8) run inside validateDrill().
 export { surfaceRatio, ballRadius, distance, fromDiamonds, toDiamonds } from './geometry.js';
 export type { PlayingSurface, BallSet, DiamondPoint, TableGeometry } from './geometry.js';
+
+// Serialization (M1.10, issue #11): the writer for ADR-0006's lossless
+// round-trip. A drill is the parsed JSON object, so unknown properties are
+// carried by the representation rather than copied by the writer.
+export { serializeDrill } from './serialization.js';

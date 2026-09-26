@@ -1,0 +1,40 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "round-trip-unknown-fields",
+  "title": "Stop shot carrying fields from a later format",
+  "description": "A valid 0.1 drill with properties this build does not understand, at the root and inside known objects and arrays. Used only to prove that read, edit, and write preserve them in place (ADR-0006).",
+  "futureRootField": { "enabled": true, "levels": [1, 2, 3] },
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50, "futureClothField": "tournament-blue" },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    { "id": "white", "role": "cue", "at": { "x": 0.4000, "y": 0.3000 }, "futureBallField": "preserve-me" },
+    { "id": "target", "role": "object", "number": 1, "at": { "x": 0.7123, "y": 0.1457 } }
+  ],
+  "sequencing": "single_shot",
+  "shots": [
+    {
+      "n": 1,
+      "type": "pot",
+      "ballId": "target",
+      "pocket": "foot_left",
+      "cueBallTarget": {
+        "shape": "circle",
+        "center": { "x": 0.7000, "y": 0.1500 },
+        "radius": 0.0350,
+        "futureRegionField": { "tolerance": null, "hints": ["near", "stop"] }
+      },
+      "note": "A true stop leaves the cue ball near the object ball's original position."
+    }
+  ],
+  "success": { "mode": "count", "attempts": 10, "target": 7 },
+  "provenance": {
+    "author": "pool-drill-gen contributors",
+    "createdAt": "2026-09-26T00:00:00Z",
+    "license": "MIT"
+  },
+  "extensions": { "com.example.trainer": { "lastOpenedTab": "layout" } }
+}
