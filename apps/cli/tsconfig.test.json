@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  // Type-checks the tests as well as the sources, and emits nothing.
+  //
+  // Run it with `tsc -b`, not `-p`: the workspace packages resolve through
+  // their package `types` entries, so the references below are what build
+  // the schema and core declarations first and let `pnpm test` work from a
+  // clean checkout.
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"]
+  },
+  "include": ["src", "test"],
+  "references": [{ "path": "../../packages/schema" }, { "path": "../../packages/core" }]
+}

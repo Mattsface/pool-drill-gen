@@ -1,4 +1,8 @@
 #!/usr/bin/env node
-// Placeholder entry point for @pool-drill-gen/cli.
-// `validate` and `show` commands land in later M1 issues.
-export {};
+// Entry point for the `pooldrill` binary.
+import { run } from './cli.js';
+
+process.exitCode = await run(process.argv.slice(2), {
+  stdout: (text) => process.stdout.write(text),
+  stderr: (text) => process.stderr.write(text),
+});

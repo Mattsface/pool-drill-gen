@@ -1,0 +1,19 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "semantic-invalid",
+  "title": "Overlapping balls and a dangling shot reference",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    { "id": "white", "role": "cue", "at": { "x": 0.4, "y": 0.3 } },
+    { "id": "target", "role": "object", "at": { "x": 0.4, "y": 0.3 } }
+  ],
+  "sequencing": "single_shot",
+  "shots": [{ "n": 1, "type": "pot", "ballId": "missing", "pocket": "foot_left" }],
+  "success": { "mode": "count", "attempts": 10, "target": 7 },
+  "provenance": { "author": "pool-drill-gen contributors", "createdAt": "2026-09-26T00:00:00Z", "license": "MIT" }
+}
