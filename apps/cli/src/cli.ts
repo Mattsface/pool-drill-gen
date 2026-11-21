@@ -4,7 +4,7 @@
 // the exit status instead of calling process.exit(), so the whole command
 // — parsing, validation, and output — can be driven in-process by tests.
 import { Command, CommanderError } from 'commander';
-import { formatValidateOutcome, validateFile } from './validate.js';
+import { formatValidateResult, validateFile } from './validate.js';
 
 /** Where the CLI writes. The entry point passes process.stdout/stderr. */
 export interface CliIO {
@@ -28,8 +28,13 @@ export async function run(args: readonly string[], io: CliIO): Promise<number> {
     .command('validate')
     .description('Check a drill file against the format schema and semantic rules.')
     .argument('<drill.json>', 'path to the drill document')
-    .action(async (path: string) => {
-      const report = formatValidateOutcome(path, await validateFile(path));
+    .option(
+      '--strict',
+      'also warn about properties the format does not declare (warnings do not fail validation)',
+    )
+    .action(async (path: string, options: { strict?: boolean }) => {
+      const result = await validateFile(path, { strict: options.strict === true });
+      const report = formatValidateResult(path, result);
       if (report.stdout) io.stdout(report.stdout);
       if (report.stderr) io.stderr(report.stderr);
       exitCode = report.exitCode;

@@ -145,7 +145,7 @@ describe('pooldrill: invocation', () => {
     const result = await pooldrill('--help');
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/^Usage: pooldrill /);
-    expect(result.stdout).toContain('validate <drill.json>');
+    expect(result.stdout).toContain('validate [options] <drill.json>');
   });
 
   it('prints help for validate', async () => {
