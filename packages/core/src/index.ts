@@ -17,3 +17,9 @@ export type {
 // *rules* that consume these (M1.8) run inside validateDrill().
 export { surfaceRatio, ballRadius, distance, fromDiamonds, toDiamonds } from './geometry.js';
 export type { PlayingSurface, BallSet, DiamondPoint, TableGeometry } from './geometry.js';
+
+// Format migration entry point (M1.5a, issue #16; ADR-0001). The identity
+// function for formatVersion "0.1"; every other version is a structured
+// failure. It checks the version only — not shape, not meaning.
+export { migrate, MIGRATION_CODES, SUPPORTED_FORMAT_VERSION } from './migrate.js';
+export type { MigrationCode, MigrationIssue, MigrationResult } from './migrate.js';
