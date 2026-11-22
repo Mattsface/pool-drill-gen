@@ -1,0 +1,36 @@
+{
+  "format": "pool-drill",
+  "formatVersion": "0.1",
+  "id": "unknown-properties",
+  "title": "Kitchen drill with authoring typos",
+  "titel": "Kitchen drill with authoring typos",
+  "authoredFor": {
+    "tableSize": "9ft",
+    "playingSurface": { "lengthIn": 100, "widthIn": 50, "widthInches": 50 },
+    "ballSet": { "ballDiameterIn": 2.25 }
+  },
+  "balls": [
+    {
+      "id": "free-cue",
+      "role": "cue",
+      "at": {
+        "shape": "rect",
+        "min": { "x": 0.0113, "y": 0.0113 },
+        "max": { "x": 0.2500, "y": 0.4887, "z": 0 },
+        "radius": 0.05
+      }
+    },
+    { "id": "pot-ball", "role": "object", "number": 2, "colour": "blue", "at": { "x": 0.6800, "y": 0.2000 } }
+  ],
+  "sequencing": "single_shot",
+  "shots": [
+    { "n": 1, "type": "pot", "ballId": "pot-ball", "pocket": "foot_left", "pockets": ["foot_left"] }
+  ],
+  "success": { "mode": "count", "attempts": 10, "target": 7 },
+  "provenance": {
+    "author": "pool-drill-gen contributors",
+    "createdAt": "2026-09-25T00:00:00Z",
+    "licence": "MIT"
+  },
+  "extensions": { "com.example.trainer": { "anything": { "goes": ["here"] } } }
+}

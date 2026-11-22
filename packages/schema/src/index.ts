@@ -24,3 +24,9 @@ export type {
   Point,
 } from './generated/drill.js';
 export { default as validateDrillSchema } from './generated/drill.validator.js';
+
+// The canonical JSON Schema itself, as data. Exposed so tooling can read
+// the schema's declared structure — `pooldrill validate --strict` derives
+// its known-property set from it — rather than restating it by hand.
+// Never pass this to ajv.compile(); validation uses the precompiled module.
+export { default as drillSchema } from './schema/drill.schema.json' with { type: 'json' };

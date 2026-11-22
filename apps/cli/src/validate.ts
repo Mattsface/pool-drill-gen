@@ -4,9 +4,14 @@
 // Shape rules belong to the precompiled validator in @pool-drill-gen/schema
 // and meaning rules to validateDrill() in @pool-drill-gen/core; this module
 // calls them in that order and never re-checks anything itself.
+//
+// With `strict`, it also lists properties the schema does not declare
+// (./strict.ts). Those are warnings: they never change the outcome or the
+// exit status, and the document is not altered to find them.
 import { readFile } from 'node:fs/promises';
 import { validateDrillSchema, type Drill } from '@pool-drill-gen/schema';
 import { validateDrill, type ValidationIssue } from '@pool-drill-gen/core';
+import { findUnknownProperties, type StrictWarning } from './strict.js';
 
 /**
  * One shape error, narrowed to the parts of an Ajv error object the CLI
@@ -36,25 +41,49 @@ export type ValidateOutcome =
   | { kind: 'schema-invalid'; errors: SchemaError[] }
   | { kind: 'semantic-invalid'; issues: ValidationIssue[] };
 
+export interface ValidateOptions {
+  /** Also report properties the schema does not declare, as warnings. */
+  strict?: boolean;
+}
+
+/**
+ * The outcome plus any strict-mode warnings. Warnings are kept apart from
+ * the outcome so they cannot be mistaken for, or turn into, a failure.
+ */
+export interface ValidateResult {
+  outcome: ValidateOutcome;
+  warnings: StrictWarning[];
+}
+
 /**
  * Runs the validation pipeline over one file: read, parse, shape, meaning.
- * Each stage runs only if the one before it passed.
+ * Each stage runs only if the one before it passed. Strict-mode warnings
+ * are gathered for any document that parses, whether or not it validates.
  */
-export async function validateFile(path: string): Promise<ValidateOutcome> {
+export async function validateFile(
+  path: string,
+  options: ValidateOptions = {},
+): Promise<ValidateResult> {
   let text: string;
   try {
     text = await readFile(path, 'utf-8');
   } catch (error) {
-    return { kind: 'read-error', detail: errorDetail(error) };
+    return { outcome: { kind: 'read-error', detail: errorDetail(error) }, warnings: [] };
   }
 
   let document: unknown;
   try {
     document = JSON.parse(text);
   } catch (error) {
-    return { kind: 'invalid-json', detail: errorDetail(error) };
+    return { outcome: { kind: 'invalid-json', detail: errorDetail(error) }, warnings: [] };
   }
 
+  const warnings = options.strict ? findUnknownProperties(document) : [];
+  return { outcome: validateDocument(document), warnings };
+}
+
+/** Shape, then meaning, over a parsed document. */
+function validateDocument(document: unknown): ValidateOutcome {
   if (!schemaValidator(document)) {
     return { kind: 'schema-invalid', errors: [...(schemaValidator.errors ?? [])] };
   }
@@ -75,13 +104,25 @@ export interface ValidateReport {
 }
 
 /**
- * Formats an outcome for a person. Success goes to stdout; every failure
+ * Formats a result for a person. Success goes to stdout; every failure
  * goes to stderr, headed by a line naming its category and the file.
+ * Strict-mode warnings follow on stderr under their own heading, and every
+ * warning line says `warning`, so they never read as errors.
  *
  * Exit status is 0 for a valid drill and 1 for any failure. The category
- * is carried by the output, not by the number.
+ * is carried by the output, not by the number. Warnings never affect it.
  */
-export function formatValidateOutcome(path: string, outcome: ValidateOutcome): ValidateReport {
+export function formatValidateResult(path: string, result: ValidateResult): ValidateReport {
+  const report = formatOutcome(path, result.outcome);
+  if (result.warnings.length === 0) return report;
+  const lines = [
+    `Strict mode: ${count(result.warnings.length, 'unknown property', 'unknown properties')} in ${path}`,
+    ...result.warnings.map(formatWarning),
+  ];
+  return { ...report, stderr: `${report.stderr}${lines.join('\n')}\n` };
+}
+
+function formatOutcome(path: string, outcome: ValidateOutcome): ValidateReport {
   switch (outcome.kind) {
     case 'valid':
       return { stdout: `Valid drill: ${outcome.drill.title}\n`, stderr: '', exitCode: 0 };
@@ -132,8 +173,13 @@ function formatIssue(issue: ValidationIssue): string[] {
   return [`  ${issue.code}${where}`, `    ${issue.message}`];
 }
 
-function count(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? '' : 's'}`;
+/** `  warning: /balls/0/colour: unknown property "colour"` */
+function formatWarning(warning: StrictWarning): string {
+  return `  warning: ${warning.path}: unknown property ${JSON.stringify(warning.property)}`;
+}
+
+function count(n: number, noun: string, plural = `${noun}s`): string {
+  return `${n} ${n === 1 ? noun : plural}`;
 }
 
 /** The message of a thrown value, without its stack. */
