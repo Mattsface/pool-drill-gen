@@ -12,7 +12,7 @@ function run(command, args) {
 }
 function fails(label, path, mutation, command, args, diagnostic, extraRestore = []) {
   const paths = [path, ...extraRestore];
-  const saved = paths.map((p) => existsSync(p) ? readFileSync(p) : null);
+  const saved = paths.map((p) => (existsSync(p) ? readFileSync(p) : null));
   try {
     writeFileSync(path, mutation(saved[0]?.toString() ?? ''));
     const result = run(command, args);
@@ -20,24 +20,80 @@ function fails(label, path, mutation, command, args, diagnostic, extraRestore = 
     assert.match(result.stdout + result.stderr, diagnostic, `${label}: wrong failure`);
     console.log(`Detected: ${label}`);
   } finally {
-    paths.forEach((p, i) => saved[i] === null ? unlinkSync(p) : writeFileSync(p, saved[i]));
+    paths.forEach((p, i) => (saved[i] === null ? unlinkSync(p) : writeFileSync(p, saved[i])));
   }
 }
-for (const [generator, artifact] of [['types', 'drill.ts'], ['validator', 'drill.validator.js']]) {
-  fails(`generated ${artifact} drift`, `packages/schema/scripts/generate-${generator}.mjs`,
-    (s) => s + "\nawait writeFile(outPath, (await readFile(outPath, 'utf8')) + '\\n// intentional negative probe\\n');\n",
-    'pnpm', ['check:generated'], /Generated artifacts differ from HEAD/,
-    [`packages/schema/src/generated/${artifact}`]);
+for (const [generator, artifact] of [
+  ['types', 'drill.ts'],
+  ['validator', 'drill.validator.js'],
+]) {
+  fails(
+    `generated ${artifact} drift`,
+    `packages/schema/scripts/generate-${generator}.mjs`,
+    (s) =>
+      s +
+      "\nawait writeFile(outPath, (await readFile(outPath, 'utf8')) + '\\n// intentional negative probe\\n');\n",
+    'pnpm',
+    ['check:generated'],
+    /Generated artifacts differ from HEAD/,
+    [`packages/schema/src/generated/${artifact}`],
+  );
 }
-fails('new generated artifact', 'packages/schema/src/generated/negative-probe.txt', () => 'unexpected', 'node', ['scripts/check-generated.mjs'], /negative-probe.txt/);
-fails('failing automated test', 'packages/core/test/negative-probe.test.ts', () => "import { it, expect } from 'vitest'; it('negative probe', () => expect(true).toBe(false));", 'pnpm', ['test'], /expected true to be false/);
-fails('TypeScript compilation failure', 'packages/core/src/geometry.ts', (s) => s + '\nconst negativeProbe: number = "wrong";\n', 'pnpm', ['build'], /TS2322/);
+fails(
+  'new generated artifact',
+  'packages/schema/src/generated/negative-probe.txt',
+  () => 'unexpected',
+  'node',
+  ['scripts/check-generated.mjs'],
+  /negative-probe.txt/,
+);
+fails(
+  'failing automated test',
+  'packages/core/test/negative-probe.test.ts',
+  () =>
+    "import { it, expect } from 'vitest'; it('negative probe', () => expect(true).toBe(false));",
+  'pnpm',
+  ['test'],
+  /expected true to be false/,
+);
+fails(
+  'TypeScript compilation failure',
+  'packages/core/src/geometry.ts',
+  (s) => s + '\nconst negativeProbe: number = "wrong";\n',
+  'pnpm',
+  ['build'],
+  /TS2322/,
+);
 for (const [label, violation] of [
-  ['node:fs import', "import 'node:fs';"], ['bare builtin', "import 'fs';"],
-  ['Node global', 'process.cwd();'], ['core to CLI reverse import', "import '../../../apps/cli/src/index.js';"],
-]) fails(label, 'packages/core/src/index.ts', (s) => s + '\n' + violation, 'pnpm', ['check:architecture'], /prohibited|boundary/);
-fails('browser-incompatible compiled dependency', 'packages/core/dist/index.js', (s) => s + "\nimport 'node:fs';\n", 'pnpm', ['check:browser'], /Could not resolve "node:fs"/);
-fails('compiled CLI smoke failure', 'apps/cli/dist/index.js', () => 'process.exit(1);', 'pnpm', ['test:smoke'], /AssertionError/);
+  ['node:fs import', "import 'node:fs';"],
+  ['bare builtin', "import 'fs';"],
+  ['Node global', 'process.cwd();'],
+  ['core to CLI reverse import', "import '../../../apps/cli/src/index.js';"],
+])
+  fails(
+    label,
+    'packages/core/src/index.ts',
+    (s) => s + '\n' + violation,
+    'pnpm',
+    ['check:architecture'],
+    /prohibited|boundary/,
+  );
+fails(
+  'browser-incompatible compiled dependency',
+  'packages/core/dist/index.js',
+  (s) => s + "\nimport 'node:fs';\n",
+  'pnpm',
+  ['check:browser'],
+  /Could not resolve "node:fs"/,
+);
+fails(
+  'compiled CLI smoke failure',
+  'apps/cli/dist/index.js',
+  () => 'process.exit(1);',
+  'pnpm',
+  ['test:smoke'],
+  /AssertionError/,
+);
 // Restore any emitted files and incremental metadata following the compiler probe.
 const rebuilt = run('pnpm', ['build']);
 assert.equal(rebuilt.status, 0, rebuilt.stdout + rebuilt.stderr);

@@ -6,7 +6,11 @@ import { join } from 'node:path';
 
 let invocations = 0;
 function cli(command, path, strict = false) {
-  const result = spawnSync(process.execPath, ['apps/cli/dist/index.js', command, ...(strict ? ['--strict'] : []), path], { encoding: 'utf8', timeout: 10000 });
+  const result = spawnSync(
+    process.execPath,
+    ['apps/cli/dist/index.js', command, ...(strict ? ['--strict'] : []), path],
+    { encoding: 'utf8', timeout: 10000 },
+  );
   assert.ifError(result.error);
   assert.equal(result.signal, null);
   invocations++;
@@ -24,15 +28,25 @@ function valid(path, warnings = false) {
     assert.match(strict.stderr, /  warning: .*unknown property/);
   } else assert.equal(strict.stderr, '');
   const fields = [
-    drill.title, `Format:      ${drill.formatVersion}`,
+    drill.title,
+    `Format:      ${drill.formatVersion}`,
     ...(drill.game ? [`Game:        ${drill.game}`] : []),
-    `Table:       ${drill.authoredFor.tableSize}`, `Sequencing:  ${drill.sequencing}`,
-    `Balls:       ${drill.balls.length}`, `Shots:       ${drill.shots.length}`,
+    `Table:       ${drill.authoredFor.tableSize}`,
+    `Sequencing:  ${drill.sequencing}`,
+    `Balls:       ${drill.balls.length}`,
+    `Shots:       ${drill.shots.length}`,
     `Success:     ${drill.success.mode === 'count' ? `count (${drill.success.target} of ${drill.success.attempts} attempts)` : drill.success.mode}`,
   ];
   assert.deepEqual(cli('show', path), { status: 0, stdout: fields.join('\n') + '\n', stderr: '' });
 }
-for (const fixture of ['stop-shot-repetition', 'three-ball-position-route', 'ball-in-hand-kitchen', 'any-order-potting', 'obstacle-ball-drill']) valid(`packages/core/test/fixtures/${fixture}.pooldrill.json`);
+for (const fixture of [
+  'stop-shot-repetition',
+  'three-ball-position-route',
+  'ball-in-hand-kitchen',
+  'any-order-potting',
+  'obstacle-ball-drill',
+])
+  valid(`packages/core/test/fixtures/${fixture}.pooldrill.json`);
 valid('packages/core/test/round-trip/unknown-fields.pooldrill.json', true);
 const scratch = mkdtempSync(join(tmpdir(), 'pooldrill-smoke-'));
 try {
@@ -51,5 +65,9 @@ try {
     }
     assert.deepEqual(cli('show', path), validation);
   }
-} finally { rmSync(scratch, { recursive: true, force: true }); }
-console.log(`Compiled CLI smoke passed: ${invocations} invocations, five canonical fixtures, unknown fields and four failure modes.`);
+} finally {
+  rmSync(scratch, { recursive: true, force: true });
+}
+console.log(
+  `Compiled CLI smoke passed: ${invocations} invocations, five canonical fixtures, unknown fields and four failure modes.`,
+);
