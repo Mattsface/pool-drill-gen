@@ -4,6 +4,7 @@
 // the exit status instead of calling process.exit(), so the whole command
 // — parsing, validation, and output — can be driven in-process by tests.
 import { Command, CommanderError } from 'commander';
+import { showFile } from './show.js';
 import { formatValidateResult, validateFile } from './validate.js';
 
 /** Where the CLI writes. The entry point passes process.stdout/stderr. */
@@ -20,7 +21,7 @@ export async function run(args: readonly string[], io: CliIO): Promise<number> {
   let exitCode = 0;
 
   const program = new Command('pooldrill')
-    .description('Validate pool drill documents.')
+    .description('Validate and inspect pool drill documents.')
     .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })
     .exitOverride();
 
@@ -35,6 +36,17 @@ export async function run(args: readonly string[], io: CliIO): Promise<number> {
     .action(async (path: string, options: { strict?: boolean }) => {
       const result = await validateFile(path, { strict: options.strict === true });
       const report = formatValidateResult(path, result);
+      if (report.stdout) io.stdout(report.stdout);
+      if (report.stderr) io.stderr(report.stderr);
+      exitCode = report.exitCode;
+    });
+
+  program
+    .command('show')
+    .description('Validate a drill file, then print a short summary of it.')
+    .argument('<drill.json>', 'path to the drill document')
+    .action(async (path: string) => {
+      const report = await showFile(path);
       if (report.stdout) io.stdout(report.stdout);
       if (report.stderr) io.stderr(report.stderr);
       exitCode = report.exitCode;
