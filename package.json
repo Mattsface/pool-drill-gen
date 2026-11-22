@@ -13,9 +13,17 @@
     "test": "pnpm -r run test",
     "schema:types": "pnpm --filter @pool-drill-gen/schema run schema:types",
     "schema:validator": "pnpm --filter @pool-drill-gen/schema run schema:validator",
-    "schema:generate": "pnpm --filter @pool-drill-gen/schema run schema:generate"
+    "schema:generate": "pnpm --filter @pool-drill-gen/schema run schema:generate",
+    "check:generated": "pnpm schema:generate && node scripts/check-generated.mjs",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "test:checks": "node --test scripts/check-architecture.test.mjs",
+    "check:browser": "node scripts/check-browser.mjs",
+    "test:smoke": "node scripts/smoke-cli.mjs",
+    "verify": "pnpm check:generated && pnpm check:architecture && pnpm test:checks && pnpm build && node scripts/check-generated.mjs && pnpm test && pnpm check:browser && pnpm test:smoke",
+    "verify:negative": "node scripts/verify-negative.mjs"
   },
   "devDependencies": {
+    "esbuild": "0.25.12",
     "typescript": "^5.6.3"
   }
 }
