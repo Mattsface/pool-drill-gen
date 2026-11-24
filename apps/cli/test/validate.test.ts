@@ -4,7 +4,7 @@
 //
 // Valid input reuses the M1.9 fixture corpus in packages/core. Broken
 // input lives in ./fixtures so the canonical fixtures stay valid.
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,6 +67,27 @@ describe('pooldrill validate: failures', () => {
   afterAll(async () => {
     await rm(scratch, { recursive: true, force: true });
   });
+
+  it.each([['validate'], ['validate', '--strict'], ['show']])(
+    'rejects an impossible count success criterion via %j without stdout',
+    async (...args) => {
+      const source = coreFixture('fixtures/stop-shot-repetition.pooldrill.json');
+      const drill = JSON.parse(await readFile(source, 'utf-8'));
+      drill.success = { mode: 'count', attempts: 3, target: 10 };
+      const path = join(scratch, 'invalid-target.pooldrill.json');
+      await writeFile(path, JSON.stringify(drill));
+
+      const result = await pooldrill(...args, path);
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toContain(`Semantic validation failed: ${path} (1 issue)`);
+      expect(result.stderr).toContain(
+        'SUCCESS_TARGET_EXCEEDS_ATTEMPTS at success.target, success.attempts',
+      );
+      expect(result.stderr).toMatch(/target.*exceed.*attempts/i);
+      expect(result.stderr).not.toMatch(STACK_FRAME);
+    },
+  );
 
   it('reports a missing file as a read error without a stack trace', async () => {
     const path = join(scratch, 'does-not-exist.json');

@@ -264,6 +264,25 @@ function validateStrictNumbering(shots: Drill['shots']): ValidationIssue[] {
 }
 
 /**
+ * Count success requires target <= attempts under every sequencing mode
+ * (ADR-0009). Shape validation already guarantees positive integers and
+ * required count fields; run_all ignores any optional count fields.
+ */
+export function validateSuccess(drill: Drill): ValidationIssue[] {
+  const { success } = drill;
+  if (success.mode === 'count' && success.target! > success.attempts!) {
+    return [
+      {
+        code: 'SUCCESS_TARGET_EXCEEDS_ATTEMPTS',
+        paths: ['success.target', 'success.attempts'],
+        message: 'Success target cannot exceed the number of attempts.',
+      },
+    ];
+  }
+  return [];
+}
+
+/**
  * Floating-point slack for the overlap comparison only, in normalized
  * units.
  *

@@ -855,7 +855,7 @@ describe('M1.7 scope', () => {
   });
 
   it('adds no code to the vocabulary', () => {
-    expect(VALIDATION_CODES).toHaveLength(10);
+    expect(VALIDATION_CODES).toHaveLength(11);
   });
 
   it('exposes only arithmetic, with no rule-shaped return values', () => {

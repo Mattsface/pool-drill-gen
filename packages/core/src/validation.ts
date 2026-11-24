@@ -16,7 +16,12 @@
 // the CLI, a browser, a Worker, and tests.
 import type { Drill } from '@pool-drill-gen/schema';
 import type { TableGeometry } from './geometry.js';
-import { validateGeometry, validateIdentityAndReferences, validateSequencing } from './rules.js';
+import {
+  validateGeometry,
+  validateIdentityAndReferences,
+  validateSequencing,
+  validateSuccess,
+} from './rules.js';
 
 /**
  * The semantic failures format 0.1 can report.
@@ -72,6 +77,9 @@ export const VALIDATION_CODES = [
   // Two balls at authored fixed positions overlap: their centres are closer than
   // one ball diameter.
   'BALL_OVERLAP',
+
+  // Count success target exceeds the available attempts (ADR-0009, M1.14 B1).
+  'SUCCESS_TARGET_EXCEEDS_ATTEMPTS',
 ] as const;
 
 /** A semantic failure code. Derived from VALIDATION_CODES so the two can never drift. */
@@ -136,7 +144,7 @@ export interface ValidateDrillOptions {
  *
  * Every rule runs: validation reports everything wrong with a document,
  * not the first thing, because a caller fixing a drill wants the whole
- * list. Issues arrive grouped by rule — identity, sequencing, geometry —
+ * list. Issues arrive grouped by rule — identity, sequencing, geometry, success —
  * and within each group in document order, so output is stable across
  * runs and diffable.
  */
@@ -150,6 +158,7 @@ export function validateDrill(drill: Drill, options: ValidateDrillOptions = {}):
     ...validateIdentityAndReferences(drill),
     ...validateSequencing(drill),
     ...validateGeometry(drill, geometry),
+    ...validateSuccess(drill),
   ];
 
   return { valid: issues.length === 0, issues };

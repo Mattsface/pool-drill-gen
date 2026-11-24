@@ -9,7 +9,7 @@
 // Shape validation is the schema package's job and is tested there (244
 // cases). Nothing here re-tests it, and nothing here compiles a schema.
 import { describe, expect, it } from 'vitest';
-import type { Drill } from '@pool-drill-gen/schema';
+import { validateDrillSchema, type Drill } from '@pool-drill-gen/schema';
 import {
   validateDrill,
   VALIDATION_CODES,
@@ -127,6 +127,65 @@ describe('validateDrill', () => {
   });
 });
 
+describe.each(['strict', 'any_order', 'single_shot'] as const)(
+  'success criteria under %s sequencing',
+  (sequencing) => {
+    function withSuccess(success: Drill['success']): Drill {
+      return { ...validDrill(), sequencing, success };
+    }
+
+    it('rejects a count target greater than attempts with one structured issue', () => {
+      const drill = withSuccess({ mode: 'count', attempts: 3, target: 10 });
+      const before = JSON.stringify(drill);
+      // Shape accepts this relationship; only core rejects it.
+      expect(validateDrillSchema(drill)).toBe(true);
+      const expected = {
+        valid: false,
+        issues: [{
+          code: 'SUCCESS_TARGET_EXCEEDS_ATTEMPTS',
+          paths: ['success.target', 'success.attempts'],
+          message: expect.stringMatching(/target.*exceed.*attempts/i),
+        }],
+      };
+      expect(validateDrill(drill)).toEqual(expected);
+      expect(validateDrill(drill)).toEqual(expected);
+      expect(JSON.stringify(drill)).toBe(before);
+    });
+
+    it.each([[10, 10], [10, 7], [10, 1], [1, 1]])(
+      'accepts count with %i attempts and target %i',
+      (attempts, target) => {
+        expect(validateDrill(withSuccess({ mode: 'count', attempts, target })))
+          .toEqual({ valid: true, issues: [] });
+      },
+    );
+
+    it.each([
+      { mode: 'run_all' as const },
+      { mode: 'run_all' as const, attempts: 3, target: 10 },
+    ])('leaves run_all unaffected: %j', (success) => {
+      expect(validateDrill(withSuccess(success))).toEqual({ valid: true, issues: [] });
+    });
+  },
+);
+
+it('appends success issues after existing rule groups deterministically', () => {
+  const drill = validDrill();
+  drill.shots[0].ballId = 'missing';
+  drill.shots[0].n = 2;
+  drill.sequencing = 'strict';
+  drill.balls[0].at = { x: 0, y: 0.25 };
+  drill.success = { mode: 'count', attempts: 3, target: 10 };
+  const expected = [
+    'UNKNOWN_BALL_REFERENCE',
+    'SHOT_NUMBERING_INVALID',
+    'POINT_OUT_OF_BOUNDS',
+    'SUCCESS_TARGET_EXCEEDS_ATTEMPTS',
+  ];
+  expect(validateDrill(drill).issues.map((issue) => issue.code)).toEqual(expected);
+  expect(validateDrill(drill).issues.map((issue) => issue.code)).toEqual(expected);
+});
+
 describe('public surface', () => {
   it('exports the result and issue types usably', () => {
     // Types are erased at runtime, so the real assertion here is the
@@ -157,6 +216,7 @@ describe('public surface', () => {
       'REGION_OUT_OF_BOUNDS',
       'REGION_GEOMETRY_INVALID',
       'BALL_OVERLAP',
+      'SUCCESS_TARGET_EXCEEDS_ATTEMPTS',
     ]);
   });
 
